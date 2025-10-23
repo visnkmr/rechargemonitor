@@ -13,7 +13,8 @@ import {
   Activity,
   DollarSign,
   Calendar,
-  Target
+  Target,
+  Wallet
 } from "lucide-react";
 import { useRecharges } from "@/hooks/use-recharges";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
@@ -31,6 +32,40 @@ export default function Home() {
   const totalRechargeValue = recharges.reduce((sum, r) => sum + r.lastRechargeAmount, 0);
   const totalSIPInvested = sipCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
   const totalFDInvested = fdCalculations.reduce((sum, calc) => sum + calc.principal, 0);
+
+  // Calculate monthly spend
+  const monthlyRechargeSpend = activeRecharges.reduce((sum, r) => sum + (r.perDayCost * 30), 0);
+
+  const monthlySIPSpend = sipCalculations.reduce((sum, calc) => {
+    // Normalize different frequencies to monthly
+    let monthlyAmount = 0;
+    switch (calc.frequency) {
+      case 'hourly':
+        monthlyAmount = calc.amount * 30 * 24; // Approximate
+        break;
+      case 'daily':
+        monthlyAmount = calc.amount * 30;
+        break;
+      case 'weekly':
+        monthlyAmount = calc.amount * 4.33; // Approximate
+        break;
+      case 'monthly':
+        monthlyAmount = calc.amount;
+        break;
+      case 'quarterly':
+        monthlyAmount = calc.amount / 3;
+        break;
+      case 'yearly':
+        monthlyAmount = calc.amount / 12;
+        break;
+      default:
+        monthlyAmount = calc.amount;
+    }
+    return sum + monthlyAmount;
+  }, 0);
+
+  const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
+  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend;
 
   const quickStats = [
     {
@@ -72,6 +107,14 @@ export default function Home() {
       icon: CreditCard,
       color: "text-red-600",
       bgColor: "bg-red-50",
+    },
+    {
+      title: "Monthly Spend",
+      value: `₹${totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      description: "Total monthly commitments",
+      icon: Wallet,
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-50",
     },
   ];
 
@@ -143,7 +186,7 @@ export default function Home() {
         </header>
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
           {quickStats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="p-6">
