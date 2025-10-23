@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateInput } from "@/components/ui/date-input";
 import { rechargeSchema, type RechargeFormValues } from "@/lib/schemas";
 import { Recharge } from "@/lib/types";
 
@@ -36,7 +36,6 @@ export function RechargeForm({
   description = recharge ? "Update the recharge details." : "Enter the details for the new recharge.",
 }: RechargeFormProps) {
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState<Date>(new Date());
 
   const {
     register,
@@ -44,12 +43,15 @@ export function RechargeForm({
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<RechargeFormValues>({
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
       rechargeDate: new Date(),
     },
   });
+
+  const watchedDate = watch("rechargeDate");
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
@@ -62,12 +64,10 @@ export function RechargeForm({
           rechargeDate: recharge.rechargeDate,
           planDays: recharge.planDays,
         });
-        setDate(recharge.rechargeDate);
       } else {
         reset({
           rechargeDate: new Date(),
         });
-        setDate(new Date());
       }
     }
   };
@@ -83,7 +83,6 @@ export function RechargeForm({
     onFormSubmit(rechargeData);
     if (!recharge) {
       reset();
-      setDate(new Date());
     }
     setOpen(false);
   };
@@ -149,12 +148,10 @@ export function RechargeForm({
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Recharge Date</Label>
             <div className="col-span-3">
-              <DatePicker
-                date={date}
-                onDateChange={(newDate) => {
-                  setDate(newDate || new Date());
-                  setValue("rechargeDate", newDate || new Date());
-                }}
+              <DateInput
+                date={watchedDate}
+                onDateChange={(newDate) => setValue("rechargeDate", newDate || new Date())}
+                placeholder="Select or enter date"
               />
             </div>
           </div>

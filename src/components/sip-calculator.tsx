@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateInput } from "@/components/ui/date-input";
 import { sipSchema, type SIPFormValues } from "@/lib/schemas";
 import { SIPCalculation, SIPFrequency } from "@/lib/types";
 
@@ -29,13 +29,13 @@ const FREQUENCY_OPTIONS = [
 
 export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
   const [calculation, setCalculation] = useState<SIPCalculation | null>(null);
-  const [date, setDate] = useState<Date>(new Date());
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     setValue,
+    watch,
     reset,
   } = useForm<SIPFormValues>({
     resolver: zodResolver(sipSchema),
@@ -44,6 +44,8 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
       frequency: 'monthly',
     },
   });
+
+  const watchedDate = watch("startDate");
 
   const calculateSIP = (data: SIPFormValues) => {
     const { amount, frequency, startDate, duration } = data;
@@ -94,7 +96,6 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
 
   const resetCalculator = () => {
     reset();
-    setDate(new Date());
     setCalculation(null);
   };
 
@@ -160,12 +161,10 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
 
               <div className="space-y-2">
                 <Label>Start Date</Label>
-                <DatePicker
-                  date={date}
-                  onDateChange={(newDate) => {
-                    setDate(newDate || new Date());
-                    setValue("startDate", newDate || new Date());
-                  }}
+                <DateInput
+                  date={watchedDate}
+                  onDateChange={(newDate) => setValue("startDate", newDate || new Date())}
+                  placeholder="Select or enter date"
                 />
               </div>
 
