@@ -52,6 +52,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const watchedAmount = watch("amount");
   const watchedFrequency = watch("frequency");
   const watchedDuration = watch("duration");
+  const watchedXirr = watch("xirr");
 
   // Handle editing mode
   useEffect(() => {
@@ -98,7 +99,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     }
   }, [watchedDate, setValue]);
 
-  // Calculate total invested amount in real-time
+  // Calculate total invested amount or future value in real-time
   const calculateRealTimeTotal = () => {
     if (!watchedAmount || !watchedFrequency || !watchedDuration) {
       return 0;
@@ -130,7 +131,14 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     }
 
     const totalInstallments = Math.floor(watchedDuration * installmentsPerMonth);
-    return totalInstallments * watchedAmount;
+
+    // If XIRR is provided, calculate future value, otherwise show total invested
+    if (watchedXirr && watchedXirr > 0) {
+      const periodsPerYear = getPeriodsPerYear(watchedFrequency);
+      return calculateSIPFutureValue(watchedAmount, watchedXirr, periodsPerYear, totalInstallments);
+    } else {
+      return totalInstallments * watchedAmount;
+    }
   };
 
   const realTimeTotal = calculateRealTimeTotal();
@@ -320,7 +328,9 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
               </div>
               {realTimeTotal > 0 && (
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Invested</p>
+                  <p className="text-sm text-muted-foreground">
+                    {watchedXirr && watchedXirr > 0 ? `Future Value (${watchedXirr}% XIRR)` : 'Total Invested'}
+                  </p>
                   <p className="text-lg font-semibold text-green-600">
                     {realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
