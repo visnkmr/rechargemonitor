@@ -118,9 +118,19 @@ export function calculateLoanDetails(
   remainingPrincipal: number,
   emi: number
 ) {
-  // Total interest paid so far
-  const totalPaid = (loanAmount - remainingPrincipal);
-  const totalInterestPaid = totalPaid - (loanAmount - remainingPrincipal);
+  // Calculate paid installments (assuming we don't know total)
+  // This is an approximation - we'll use a reasonable estimate
+  const estimatedTotalInstallments = Math.round(loanAmount / (emi * 0.6)); // Rough estimate
+  const paidInstallments = Math.max(0, estimatedTotalInstallments - remainingInstallments);
+
+  // Principal paid so far
+  const principalPaid = loanAmount - remainingPrincipal;
+
+  // Total amount paid so far
+  const totalAmountPaid = paidInstallments * emi;
+
+  // Interest paid so far (this could be negative if estimate is wrong, so we cap it)
+  const totalInterestPaid = Math.max(0, totalAmountPaid - principalPaid);
 
   // Future cash flows for XIRR calculation
   const cashFlows = [
@@ -143,7 +153,7 @@ export function calculateLoanDetails(
 
   return {
     totalInterestPaid,
-    totalAmountPaid: totalPaid,
+    totalAmountPaid,
     remainingAmount: remainingPrincipal + (emi * remainingInstallments),
     xirr,
     remainingMonths,
@@ -164,9 +174,14 @@ export function calculateLoanDetailsWithTotal(
   // Calculate paid installments
   const paidInstallments = totalInstallments - remainingInstallments;
 
-  // Total interest paid so far
-  const totalPaid = (loanAmount - remainingPrincipal);
-  const totalInterestPaid = totalPaid - (loanAmount - remainingPrincipal);
+  // Principal paid so far
+  const principalPaid = loanAmount - remainingPrincipal;
+
+  // Total amount paid so far
+  const totalAmountPaid = paidInstallments * emi;
+
+  // Interest paid so far
+  const totalInterestPaid = Math.max(0, totalAmountPaid - principalPaid);
 
   // Total interest over entire loan period
   const totalAmountPayable = emi * totalInstallments;
@@ -193,7 +208,7 @@ export function calculateLoanDetailsWithTotal(
 
   return {
     totalInterestPaid,
-    totalAmountPaid: totalPaid,
+    totalAmountPaid,
     remainingAmount: remainingPrincipal + (emi * remainingInstallments),
     xirr,
     remainingMonths,
