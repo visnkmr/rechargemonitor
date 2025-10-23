@@ -28,9 +28,14 @@ export default function Home() {
                 Track your mobile recharges and monitor active plans.
               </p>
             </div>
-            <Link href="/sip">
-              <Button variant="outline">SIP Calculator</Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link href="/sip">
+                <Button variant="outline">SIP Calculator</Button>
+              </Link>
+              <Link href="/export">
+                <Button variant="outline">Export/Import</Button>
+              </Link>
+            </div>
           </div>
         </header>
 
