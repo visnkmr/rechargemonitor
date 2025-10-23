@@ -21,6 +21,7 @@ function loadSIPCalculationsFromStorage(): SIPCalculation[] {
         ...calc,
         startDate: new Date(calc.startDate),
         createdAt: new Date(calc.createdAt),
+        enabled: calc.enabled ?? true, // Default to enabled for existing calculations
       }));
     } catch (error) {
       console.error("Failed to parse SIP calculations from localStorage", error);
@@ -56,5 +57,15 @@ export function useSIPCalculations() {
     setCalculations((current) => current.filter(calc => calc.id !== id));
   };
 
-  return { calculations, addCalculation, updateCalculation, deleteCalculation };
+  const toggleCalculation = (id: string) => {
+    setCalculations((current) =>
+      current.map((calc) =>
+        calc.id === id
+          ? { ...calc, enabled: !calc.enabled }
+          : calc
+      )
+    );
+  };
+
+  return { calculations, addCalculation, updateCalculation, deleteCalculation, toggleCalculation };
 }

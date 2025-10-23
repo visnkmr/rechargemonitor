@@ -94,11 +94,14 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
         frequency: editingCalculation.frequency,
         startDate: editingCalculation.startDate,
         duration: editingCalculation.duration,
+        xirr: editingCalculation.xirr,
+        enabled: editingCalculation.enabled,
       });
     } else {
       reset({
         startDate: new Date(),
         frequency: 'monthly',
+        enabled: true,
       });
     }
   }, [editingCalculation, reset]);
@@ -175,7 +178,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const realTimeTotal = calculateRealTimeTotal();
 
   const calculateSIP = (data: SIPFormValues) => {
-    const { amount, frequency, startDate, duration, xirr } = data;
+    const { amount, frequency, startDate, duration, xirr, enabled = true } = data;
 
     // Calculate number of installments per month
     let installmentsPerMonth: number;
@@ -223,6 +226,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       totalInstallments,
       xirr,
       futureValue,
+      enabled: enabled, // Use the form value
       createdAt: editingCalculation?.createdAt || new Date(),
     };
 
@@ -236,7 +240,11 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   };
 
   const resetCalculator = () => {
-    reset();
+    reset({
+      startDate: new Date(),
+      frequency: 'monthly',
+      enabled: true,
+    });
     setCalculation(null);
     if (editingCalculation && onCancelEdit) {
       onCancelEdit();
@@ -344,11 +352,24 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                  {errors.xirr && (
                    <p className="text-sm text-red-500">{errors.xirr.message}</p>
                  )}
-                 <p className="text-xs text-muted-foreground">
-                   Optional: Expected annual return rate to calculate future value
-                 </p>
-               </div>
-            </div>
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Expected annual return rate to calculate future value
+                  </p>
+                </div>
+             </div>
+
+             <div className="flex items-center space-x-2">
+               <input
+                 type="checkbox"
+                 id="enabled"
+                 {...register("enabled")}
+                 defaultChecked={true}
+                 className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+               />
+               <Label htmlFor="enabled" className="text-sm">
+                 Include in monthly spend calculations
+               </Label>
+             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex gap-2">

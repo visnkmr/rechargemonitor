@@ -34,6 +34,7 @@ export interface SIPCalculation {
   totalInstallments: number;
   xirr?: number; // Expected rate of return (percentage)
   futureValue?: number; // Future value at XIRR
+  enabled: boolean; // Whether to include in monthly spend calculations
   createdAt: Date;
 }
 
@@ -44,4 +45,5 @@ export interface SIPFormData {
   startDate: Date;
   duration: number;
   xirr?: number;
+  enabled?: boolean;
 }

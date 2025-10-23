@@ -31,6 +31,7 @@ export const sipSchema = z.object({
   startDate: z.date(),
   duration: z.number().min(1, "Duration must be at least 1 month"),
   xirr: z.number().min(0).max(100).optional(),
+  enabled: z.boolean().optional(),
 });
 
 export type SIPFormValues = z.infer<typeof sipSchema>;

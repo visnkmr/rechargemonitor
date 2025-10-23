@@ -15,7 +15,9 @@ import {
   Calendar,
   Target,
   Wallet,
-  Receipt
+  Receipt,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useRecharges } from "@/hooks/use-recharges";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
@@ -25,7 +27,7 @@ import { useBills } from "@/hooks/use-bills";
 
 export default function Home() {
   const { recharges } = useRecharges();
-  const { calculations: sipCalculations } = useSIPCalculations();
+  const { calculations: sipCalculations, toggleCalculation } = useSIPCalculations();
   const { calculations: fdCalculations } = useFDCalculations();
   const { calculations: loanCalculations } = useLoanCalculations();
   const { bills } = useBills();
@@ -39,33 +41,35 @@ export default function Home() {
   // Calculate monthly spend
   const monthlyRechargeSpend = activeRecharges.reduce((sum, r) => sum + (r.perDayCost * 30), 0);
 
-  const monthlySIPSpend = sipCalculations.reduce((sum, calc) => {
-    // Normalize different frequencies to monthly
-    let monthlyAmount = 0;
-    switch (calc.frequency) {
-      case 'hourly':
-        monthlyAmount = calc.amount * 30 * 24; // Approximate
-        break;
-      case 'daily':
-        monthlyAmount = calc.amount * 30;
-        break;
-      case 'weekly':
-        monthlyAmount = calc.amount * 4.33; // Approximate
-        break;
-      case 'monthly':
-        monthlyAmount = calc.amount;
-        break;
-      case 'quarterly':
-        monthlyAmount = calc.amount / 3;
-        break;
-      case 'yearly':
-        monthlyAmount = calc.amount / 12;
-        break;
-      default:
-        monthlyAmount = calc.amount;
-    }
-    return sum + monthlyAmount;
-  }, 0);
+  const monthlySIPSpend = sipCalculations
+    .filter(calc => calc.enabled) // Only include enabled SIPs
+    .reduce((sum, calc) => {
+      // Normalize different frequencies to monthly
+      let monthlyAmount = 0;
+      switch (calc.frequency) {
+        case 'hourly':
+          monthlyAmount = calc.amount * 30 * 24; // Approximate
+          break;
+        case 'daily':
+          monthlyAmount = calc.amount * 30;
+          break;
+        case 'weekly':
+          monthlyAmount = calc.amount * 4.33; // Approximate
+          break;
+        case 'monthly':
+          monthlyAmount = calc.amount;
+          break;
+        case 'quarterly':
+          monthlyAmount = calc.amount / 3;
+          break;
+        case 'yearly':
+          monthlyAmount = calc.amount / 12;
+          break;
+        default:
+          monthlyAmount = calc.amount;
+      }
+      return sum + monthlyAmount;
+    }, 0);
 
   const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
   const monthlyBillsSpend = bills.reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
@@ -336,8 +340,23 @@ export default function Home() {
                   <div key={calc.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Target className="h-5 w-5 text-purple-600" />
-                      <div>
-                        <p className="font-medium">{calc.name}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{calc.name}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleCalculation(calc.id)}
+                            className="h-6 w-6 p-0 hover:bg-purple-100"
+                            title={calc.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                          >
+                            {calc.enabled ? (
+                              <Eye className="h-3 w-3 text-purple-600" />
+                            ) : (
+                              <EyeOff className="h-3 w-3 text-gray-400" />
+                            )}
+                          </Button>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           ₹{calc.amount} {calc.frequency} - {calc.duration} months
                         </p>
