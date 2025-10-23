@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { differenceInDays } from "date-fns";
 import { Recharge } from "@/lib/types";
 
-type StoredRecharge = Omit<Recharge, 'rechargeDate'> & { rechargeDate: string };
+type StoredRecharge = Omit<Recharge, 'rechargeDate' | 'endDate'> & {
+  rechargeDate: string;
+  endDate?: string;
+};
 
 const STORAGE_KEY = "recharges";
 
@@ -19,6 +22,7 @@ function loadRechargesFromStorage(): Recharge[] {
       return parsed.map((r) => ({
         ...r,
         rechargeDate: new Date(r.rechargeDate),
+        endDate: r.endDate ? new Date(r.endDate) : undefined,
       }));
     } catch (error) {
       console.error("Failed to parse recharges from localStorage", error);
