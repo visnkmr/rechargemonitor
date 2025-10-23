@@ -7,15 +7,19 @@ export const rechargeSchema = z.object({
   rechargeDate: z.date(),
   planDays: z.number().min(1, "Plan days must be at least 1"),
   endDate: z.date().optional(),
-  inputMode: z.enum(['duration', 'endDate']),
+  inputMode: z.enum(['startAndDuration', 'endAndDuration', 'startAndEnd']),
 }).refine((data) => {
-  if (data.inputMode === 'endDate') {
-    return data.endDate && data.endDate > data.rechargeDate;
+  if (data.inputMode === 'startAndDuration') {
+    return data.rechargeDate && data.planDays;
+  } else if (data.inputMode === 'endAndDuration') {
+    return data.endDate && data.planDays;
+  } else if (data.inputMode === 'startAndEnd') {
+    return data.rechargeDate && data.endDate && data.endDate > data.rechargeDate;
   }
   return true;
 }, {
-  message: "End date must be after recharge date",
-  path: ["endDate"],
+  message: "Please provide valid date and duration combination",
+  path: ["inputMode"],
 });
 
 export type RechargeFormValues = z.infer<typeof rechargeSchema>;

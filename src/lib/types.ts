@@ -8,7 +8,7 @@ export interface Recharge {
   perDayCost: number;
   remainingDays: number;
   endDate?: Date;
-  inputMode: 'duration' | 'endDate';
+  inputMode: 'startAndDuration' | 'endAndDuration' | 'startAndEnd';
 }
 
 export interface RechargeFormData {
@@ -18,7 +18,7 @@ export interface RechargeFormData {
   rechargeDate: Date;
   planDays: number;
   endDate?: Date;
-  inputMode: 'duration' | 'endDate';
+  inputMode: 'startAndDuration' | 'endAndDuration' | 'startAndEnd';
 }
 
 export type SIPFrequency = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';

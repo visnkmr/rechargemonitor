@@ -50,7 +50,7 @@ export function RechargeForm({
     resolver: zodResolver(rechargeSchema),
     defaultValues: {
       rechargeDate: new Date(),
-      inputMode: 'duration',
+      inputMode: 'startAndDuration',
     },
   });
 
@@ -59,17 +59,19 @@ export function RechargeForm({
   const watchedInputMode = watch("inputMode");
   const watchedPlanDays = watch("planDays");
 
-  // Calculate remaining days based on input mode
+  // Calculate remaining days based on available dates
   const calculateRemainingDays = () => {
-    if (!watchedDate) return 0;
+    if (!watchedDate && !watchedEndDate) return 0;
 
     const today = new Date();
-    if (watchedInputMode === 'endDate' && watchedEndDate) {
-      // Calculate based on end date
+
+    // If we have an end date, use it to calculate remaining days
+    if (watchedEndDate) {
       const daysDiff = differenceInDays(watchedEndDate, today);
       return Math.max(0, daysDiff);
-    } else if (watchedInputMode === 'duration' && watchedPlanDays) {
-      // Calculate based on plan days from recharge date
+    }
+    // Otherwise, if we have start date and plan days, calculate end date and remaining days
+    else if (watchedDate && watchedPlanDays) {
       const endDate = new Date(watchedDate);
       endDate.setDate(endDate.getDate() + watchedPlanDays);
       const daysDiff = differenceInDays(endDate, today);
@@ -80,15 +82,26 @@ export function RechargeForm({
 
   const remainingDays = calculateRemainingDays();
 
-  // Auto-calculate plan days when end date is selected
+  // Auto-calculate missing field based on input mode
   React.useEffect(() => {
-    if (watchedInputMode === 'endDate' && watchedDate && watchedEndDate) {
+    if (watchedInputMode === 'startAndDuration' && watchedDate && watchedPlanDays) {
+      // Calculate end date from start date + duration
+      const endDate = new Date(watchedDate);
+      endDate.setDate(endDate.getDate() + watchedPlanDays);
+      setValue("endDate", endDate);
+    } else if (watchedInputMode === 'endAndDuration' && watchedEndDate && watchedPlanDays) {
+      // Calculate start date from end date - duration
+      const startDate = new Date(watchedEndDate);
+      startDate.setDate(startDate.getDate() - watchedPlanDays);
+      setValue("rechargeDate", startDate);
+    } else if (watchedInputMode === 'startAndEnd' && watchedDate && watchedEndDate) {
+      // Calculate duration from end date - start date
       const daysDiff = differenceInDays(watchedEndDate, watchedDate);
       if (daysDiff > 0) {
         setValue("planDays", daysDiff);
       }
     }
-  }, [watchedInputMode, watchedDate, watchedEndDate, setValue]);
+  }, [watchedInputMode, watchedDate, watchedEndDate, watchedPlanDays, setValue]);
 
   // Save form values to localStorage (only for new recharges, not edits)
   useEffect(() => {
@@ -143,7 +156,7 @@ export function RechargeForm({
       } else {
         reset({
           rechargeDate: new Date(),
-          inputMode: 'duration',
+          inputMode: 'startAndDuration',
         });
       }
     }
@@ -153,9 +166,10 @@ export function RechargeForm({
     const perDayCost = data.lastRechargeAmount / data.planDays;
 
     let endDate: Date | undefined;
-    if (data.inputMode === 'endDate' && data.endDate) {
+    if (data.endDate) {
+      // If endDate is provided (from any input mode), use it
       endDate = data.endDate;
-    } else {
+    } else if (data.rechargeDate && data.planDays) {
       // Calculate end date from recharge date + plan days
       endDate = new Date(data.rechargeDate);
       endDate.setDate(endDate.getDate() + data.planDays);
@@ -235,69 +249,75 @@ export function RechargeForm({
           </div>
 
           {/* Input Mode Selection */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Input Mode</Label>
-            <div className="col-span-3">
-              <RadioGroup
-                value={watchedInputMode}
-                onValueChange={(value: 'duration' | 'endDate') => setValue("inputMode", value)}
-                className="flex flex-row space-x-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="duration" id="duration" />
-                  <Label htmlFor="duration">Duration (days)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="endDate" id="endDate" />
-                  <Label htmlFor="endDate">End Date</Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Recharge Date</Label>
-            <div className="col-span-3">
-              <DateInput
-                date={watchedDate}
-                onDateChange={(newDate) => setValue("rechargeDate", newDate || new Date())}
-              />
-            </div>
-          </div>
-
-          {watchedInputMode === 'duration' ? (
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="planDays" className="text-right">
-                Plan Days
-              </Label>
-              <Input
-                id="planDays"
-                type="number"
-                {...register("planDays", { valueAsNumber: true })}
-                className="col-span-3"
-              />
-              {errors.planDays && (
-                <p className="col-span-4 text-sm text-red-500">
-                  {errors.planDays.message}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">End Date</Label>
-              <div className="col-span-3">
-                <DateInput
-                  date={watchedEndDate}
-                  onDateChange={(newDate) => setValue("endDate", newDate)}
-                />
-              </div>
-              {errors.endDate && (
-                <p className="col-span-4 text-sm text-red-500">
-                  {errors.endDate.message}
-                </p>
-              )}
-            </div>
-          )}
+             <Label className="text-right">Input Mode</Label>
+             <div className="col-span-3">
+               <RadioGroup
+                 value={watchedInputMode}
+                 onValueChange={(value: 'startAndDuration' | 'endAndDuration' | 'startAndEnd') => setValue("inputMode", value)}
+                 className="grid grid-cols-1 gap-2"
+               >
+                 <div className="flex items-center space-x-2">
+                   <RadioGroupItem value="startAndDuration" id="startAndDuration" />
+                   <Label htmlFor="startAndDuration">Start Date + Duration</Label>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                   <RadioGroupItem value="endAndDuration" id="endAndDuration" />
+                   <Label htmlFor="endAndDuration">End Date + Duration</Label>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                   <RadioGroupItem value="startAndEnd" id="startAndEnd" />
+                   <Label htmlFor="startAndEnd">Start Date + End Date</Label>
+                 </div>
+               </RadioGroup>
+             </div>
+           </div>
+
+           {/* Start Date - shown for startAndDuration and startAndEnd modes */}
+           {(watchedInputMode === 'startAndDuration' || watchedInputMode === 'startAndEnd') && (
+             <div className="grid grid-cols-4 items-center gap-4">
+               <Label className="text-right">Start Date</Label>
+               <div className="col-span-3">
+                 <DateInput
+                   date={watchedDate}
+                   onDateChange={(newDate) => setValue("rechargeDate", newDate || new Date())}
+                 />
+               </div>
+             </div>
+           )}
+
+           {/* End Date - shown for endAndDuration and startAndEnd modes */}
+           {(watchedInputMode === 'endAndDuration' || watchedInputMode === 'startAndEnd') && (
+             <div className="grid grid-cols-4 items-center gap-4">
+               <Label className="text-right">End Date</Label>
+               <div className="col-span-3">
+                 <DateInput
+                   date={watchedEndDate}
+                   onDateChange={(newDate) => setValue("endDate", newDate)}
+                 />
+               </div>
+             </div>
+           )}
+
+           {/* Duration - shown for startAndDuration and endAndDuration modes */}
+           {(watchedInputMode === 'startAndDuration' || watchedInputMode === 'endAndDuration') && (
+             <div className="grid grid-cols-4 items-center gap-4">
+               <Label htmlFor="planDays" className="text-right">
+                 Duration (Days)
+               </Label>
+               <Input
+                 id="planDays"
+                 type="number"
+                 {...register("planDays", { valueAsNumber: true })}
+                 className="col-span-3"
+               />
+               {errors.planDays && (
+                 <p className="col-span-4 text-sm text-red-500">
+                   {errors.planDays.message}
+                 </p>
+               )}
+             </div>
+            )}
 
           {/* Remaining Days Display */}
           <div className="grid grid-cols-4 items-center gap-4">
