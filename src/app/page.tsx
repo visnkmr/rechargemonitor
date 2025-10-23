@@ -258,7 +258,7 @@ export default function Home() {
                       <div>
                         <p className="font-medium">{recharge.nickname}</p>
                         <p className="text-sm text-muted-foreground">
-                          ₹{recharge.lastRechargeAmount} - {recharge.planDays} days
+                          ₹{recharge.lastRechargeAmount} - {recharge.remainingDays} days remaining
                         </p>
                       </div>
                     </div>
