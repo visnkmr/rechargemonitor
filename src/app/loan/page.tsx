@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,6 +46,8 @@ export default function LoanPage() {
     remainingMonths: number;
     remainingYears: number;
     totalInterestOverLoan: number;
+    totalAmountPayable: number;
+    paidInstallments: number;
   } | null>(null);
 
   const {
@@ -53,6 +55,7 @@ export default function LoanPage() {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<LoanFormValues>({
     resolver: zodResolver(loanSchema),
   });
@@ -90,7 +93,7 @@ export default function LoanPage() {
         console.error('Failed to load loan calculator form data:', error);
       }
     }
-  }, []); // setValue is stable, no need to include it
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real-time calculation
   const realTimeCalculation = () => {

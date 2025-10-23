@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,7 +81,7 @@ export default function FDPage() {
         console.error('Failed to load FD calculator form data:', error);
       }
     }
-  }, []); // setValue is stable, no need to include it
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real-time calculation
   const realTimeCalculation = () => {

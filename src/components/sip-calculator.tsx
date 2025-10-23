@@ -83,7 +83,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
         console.error('Failed to load SIP calculator form data:', error);
       }
     }
-  }, []); // setValue is stable, no need to include it
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle editing mode
   useEffect(() => {
