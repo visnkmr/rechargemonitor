@@ -16,9 +16,9 @@ import { Bill } from "@/hooks/use-bills";
 interface ExportData {
   recharges: Recharge[];
   sipCalculations: SIPCalculation[];
-  fdCalculations: FDCalculation[];
-  loanCalculations: LoanCalculation[];
-  bills: Bill[];
+  fdCalculations?: FDCalculation[]; // Optional for backward compatibility
+  loanCalculations?: LoanCalculation[]; // Optional for backward compatibility
+  bills?: Bill[]; // Optional for backward compatibility
   exportDate: string;
   version: string;
 }
@@ -99,45 +99,59 @@ export default function ExportPage() {
         const content = e.target?.result as string;
         const importData: ExportData = JSON.parse(content);
 
-        // Validate the import data structure
-        if (!importData.recharges || !importData.sipCalculations || !importData.fdCalculations || !importData.loanCalculations || !importData.bills) {
-          throw new Error('Invalid file format. Missing required data.');
+        // Validate the import data structure (backward compatible)
+        if (!importData.recharges || !importData.sipCalculations) {
+          throw new Error('Invalid file format. Missing required data (recharges and SIP calculations).');
         }
+
+        // Provide defaults for missing data types (for backward compatibility)
+        const safeImportData = {
+          recharges: importData.recharges,
+          sipCalculations: (importData.sipCalculations || []).map(calc => ({
+            ...calc,
+            enabled: calc.enabled ?? true // Add enabled field for backward compatibility
+          })),
+          fdCalculations: importData.fdCalculations || [],
+          loanCalculations: importData.loanCalculations || [],
+          bills: importData.bills || [],
+          exportDate: importData.exportDate,
+          version: importData.version || '1.0'
+        };
 
         if (importMode === 'replace') {
           // Replace mode - completely replace existing data
-          if (importData.recharges.length > 0) {
-            localStorage.setItem('recharges', JSON.stringify(importData.recharges));
+          if (safeImportData.recharges.length > 0) {
+            localStorage.setItem('recharges', JSON.stringify(safeImportData.recharges));
           } else {
             localStorage.removeItem('recharges');
           }
 
-          if (importData.sipCalculations.length > 0) {
-            localStorage.setItem('sip-calculations', JSON.stringify(importData.sipCalculations));
+          if (safeImportData.sipCalculations.length > 0) {
+            localStorage.setItem('sip-calculations', JSON.stringify(safeImportData.sipCalculations));
           } else {
             localStorage.removeItem('sip-calculations');
           }
 
-          if (importData.fdCalculations.length > 0) {
-            localStorage.setItem('fd-calculations', JSON.stringify(importData.fdCalculations));
+          if (safeImportData.fdCalculations.length > 0) {
+            localStorage.setItem('fd-calculations', JSON.stringify(safeImportData.fdCalculations));
           } else {
             localStorage.removeItem('fd-calculations');
           }
 
-          if (importData.loanCalculations.length > 0) {
-            localStorage.setItem('loan-calculations', JSON.stringify(importData.loanCalculations));
+          if (safeImportData.loanCalculations.length > 0) {
+            localStorage.setItem('loan-calculations', JSON.stringify(safeImportData.loanCalculations));
           } else {
             localStorage.removeItem('loan-calculations');
           }
 
-          if (importData.bills.length > 0) {
-            localStorage.setItem('bills', JSON.stringify(importData.bills));
+          if (safeImportData.bills.length > 0) {
+            localStorage.setItem('bills', JSON.stringify(safeImportData.bills));
           } else {
             localStorage.removeItem('bills');
           }
 
           setImportStatus('success');
-          setImportMessage(`Successfully replaced data with ${importData.recharges.length} recharges, ${importData.sipCalculations.length} SIP calculations, ${importData.fdCalculations.length} FD calculations, ${importData.loanCalculations.length} loan calculations, and ${importData.bills.length} bills. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills. Please refresh the page to see the changes.`);
         } else {
           // Append mode - merge with existing data
           const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -149,7 +163,7 @@ export default function ExportPage() {
           // Generate new IDs for imported data to avoid conflicts
           const mergedRecharges = [
             ...existingRecharges,
-            ...importData.recharges.map(recharge => ({
+            ...safeImportData.recharges.map(recharge => ({
               ...recharge,
               id: crypto.randomUUID() // Generate new ID
             }))
@@ -157,7 +171,7 @@ export default function ExportPage() {
 
           const mergedSIPCalculations = [
             ...existingSIPCalculations,
-            ...importData.sipCalculations.map(calc => ({
+            ...safeImportData.sipCalculations.map(calc => ({
               ...calc,
               id: crypto.randomUUID() // Generate new ID
             }))
@@ -165,7 +179,7 @@ export default function ExportPage() {
 
           const mergedFDCalculations = [
             ...existingFDCalculations,
-            ...importData.fdCalculations.map(calc => ({
+            ...safeImportData.fdCalculations.map(calc => ({
               ...calc,
               id: crypto.randomUUID() // Generate new ID
             }))
@@ -173,7 +187,7 @@ export default function ExportPage() {
 
           const mergedLoanCalculations = [
             ...existingLoanCalculations,
-            ...importData.loanCalculations.map(calc => ({
+            ...safeImportData.loanCalculations.map(calc => ({
               ...calc,
               id: crypto.randomUUID() // Generate new ID
             }))
@@ -181,7 +195,7 @@ export default function ExportPage() {
 
           const mergedBills = [
             ...existingBills,
-            ...importData.bills.map(bill => ({
+            ...safeImportData.bills.map(bill => ({
               ...bill,
               id: crypto.randomUUID() // Generate new ID
             }))
@@ -208,7 +222,7 @@ export default function ExportPage() {
           }
 
           setImportStatus('success');
-          setImportMessage(`Successfully appended ${importData.recharges.length} recharges, ${importData.sipCalculations.length} SIP calculations, ${importData.fdCalculations.length} FD calculations, ${importData.loanCalculations.length} loan calculations, and ${importData.bills.length} bills to existing data. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully appended ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills to existing data. Please refresh the page to see the changes.`);
         }
 
         // Clear the file input
