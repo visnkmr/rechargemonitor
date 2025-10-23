@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { SIPCalculator } from "@/components/sip-calculator";
 import { SIPHistory } from "@/components/sip-history";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
 import { SIPCalculation } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 
 export default function SIPPage() {
   const { calculations, addCalculation, updateCalculation, deleteCalculation } = useSIPCalculations();
@@ -30,10 +32,22 @@ export default function SIPPage() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold">SIP Calculator</h1>
-          <p className="text-muted-foreground">
-            Calculate your Systematic Investment Plan totals and track your investment history.
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold">SIP Calculator</h1>
+              <p className="text-muted-foreground">
+                Calculate your Systematic Investment Plan totals and track your investment history.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/">
+                <Button variant="outline">Recharge Monitor</Button>
+              </Link>
+              <Link href="/export">
+                <Button variant="outline">Export/Import</Button>
+              </Link>
+            </div>
+          </div>
         </header>
 
         <div className="space-y-8">
