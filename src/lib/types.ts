@@ -32,6 +32,8 @@ export interface SIPCalculation {
   duration: number; // in months
   totalInvested: number;
   totalInstallments: number;
+  xirr?: number; // Expected rate of return (percentage)
+  futureValue?: number; // Future value at XIRR
   createdAt: Date;
 }
 
@@ -41,4 +43,5 @@ export interface SIPFormData {
   frequency: SIPFrequency;
   startDate: Date;
   duration: number;
+  xirr?: number;
 }

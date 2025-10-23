@@ -26,6 +26,7 @@ export const sipSchema = z.object({
   frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly']),
   startDate: z.date(),
   duration: z.number().min(1, "Duration must be at least 1 month"),
+  xirr: z.number().min(0).max(100).optional(),
 });
 
 export type SIPFormValues = z.infer<typeof sipSchema>;

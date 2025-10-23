@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DateInput } from "@/components/ui/date-input";
 import { sipSchema, type SIPFormValues } from "@/lib/schemas";
 import { SIPCalculation, SIPFrequency } from "@/lib/types";
+import { calculateSIPFutureValue, getPeriodsPerYear } from "@/lib/financial-utils";
 
 interface SIPCalculatorProps {
   onSaveCalculation: (calculation: SIPCalculation) => void;
@@ -135,7 +136,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const realTimeTotal = calculateRealTimeTotal();
 
   const calculateSIP = (data: SIPFormValues) => {
-    const { amount, frequency, startDate, duration } = data;
+    const { amount, frequency, startDate, duration, xirr } = data;
 
     // Calculate number of installments per month
     let installmentsPerMonth: number;
@@ -165,6 +166,13 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     const totalInstallments = Math.floor(duration * installmentsPerMonth);
     const totalInvested = totalInstallments * amount;
 
+    // Calculate future value if XIRR is provided
+    let futureValue: number | undefined;
+    if (xirr && xirr > 0) {
+      const periodsPerYear = getPeriodsPerYear(frequency);
+      futureValue = calculateSIPFutureValue(amount, xirr, periodsPerYear, totalInstallments);
+    }
+
     const sipCalculation: SIPCalculation = {
       id: editingCalculation?.id || crypto.randomUUID(),
       name: data.name,
@@ -174,6 +182,8 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       duration,
       totalInvested,
       totalInstallments,
+      xirr,
+      futureValue,
       createdAt: editingCalculation?.createdAt || new Date(),
     };
 
@@ -267,21 +277,38 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (Months)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  {...register("duration", { valueAsNumber: true })}
-                  placeholder="Auto-calculated from start date"
-                />
-                {errors.duration && (
-                  <p className="text-sm text-red-500">{errors.duration.message}</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Duration is automatically calculated based on the start date to today
-                </p>
-              </div>
+               <div className="space-y-2">
+                 <Label htmlFor="duration">Duration (Months)</Label>
+                 <Input
+                   id="duration"
+                   type="number"
+                   {...register("duration", { valueAsNumber: true })}
+                   placeholder="Auto-calculated from start date"
+                 />
+                 {errors.duration && (
+                   <p className="text-sm text-red-500">{errors.duration.message}</p>
+                 )}
+                 <p className="text-xs text-muted-foreground">
+                   Duration is automatically calculated based on the start date to today
+                 </p>
+               </div>
+
+               <div className="space-y-2">
+                 <Label htmlFor="xirr">Expected Return (XIRR %)</Label>
+                 <Input
+                   id="xirr"
+                   type="number"
+                   step="0.01"
+                   {...register("xirr", { valueAsNumber: true })}
+                   placeholder="Optional - e.g., 12.5"
+                 />
+                 {errors.xirr && (
+                   <p className="text-sm text-red-500">{errors.xirr.message}</p>
+                 )}
+                 <p className="text-xs text-muted-foreground">
+                   Optional: Expected annual return rate to calculate future value
+                 </p>
+               </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -319,14 +346,17 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                 <p><strong>Start Date:</strong> {format(calculation.startDate, "PPP")}</p>
                 <p><strong>Duration:</strong> {calculation.duration} months</p>
               </div>
-              <div>
-                <h3 className="font-semibold mb-2">Results</h3>
-                <p><strong>Total Installments:</strong> {calculation.totalInstallments}</p>
-                <p><strong>Total Amount Invested:</strong> {calculation.totalInvested.toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground">
-                  End Date: {format(addMonths(calculation.startDate, calculation.duration), "PPP")}
-                </p>
-              </div>
+               <div>
+                 <h3 className="font-semibold mb-2">Results</h3>
+                 <p><strong>Total Installments:</strong> {calculation.totalInstallments}</p>
+                 <p><strong>Total Amount Invested:</strong> {calculation.totalInvested.toFixed(2)}</p>
+                 {calculation.futureValue && calculation.xirr && (
+                   <p><strong>Future Value at {calculation.xirr}% XIRR:</strong> {calculation.futureValue.toFixed(2)}</p>
+                 )}
+                 <p className="text-sm text-muted-foreground">
+                   End Date: {format(addMonths(calculation.startDate, calculation.duration), "PPP")}
+                 </p>
+               </div>
             </div>
           </CardContent>
         </Card>

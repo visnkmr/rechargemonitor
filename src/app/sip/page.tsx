@@ -39,9 +39,15 @@ export default function SIPPage() {
                 Calculate your Systematic Investment Plan totals and track your investment history.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Link href="/">
                 <Button variant="outline">Recharge Monitor</Button>
+              </Link>
+              <Link href="/fd">
+                <Button variant="outline">FD Calculator</Button>
+              </Link>
+              <Link href="/loan">
+                <Button variant="outline">Loan Calculator</Button>
               </Link>
               <Link href="/export">
                 <Button variant="outline">Export/Import</Button>

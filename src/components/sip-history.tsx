@@ -71,14 +71,20 @@ export function SIPHistory({ calculations, onDeleteCalculation, onEditCalculatio
                   <span className="text-muted-foreground">Duration:</span>
                   <span>{calc.duration} months</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-muted-foreground">Installments:</span>
-                  <span>{calc.totalInstallments}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 font-semibold">
-                  <span>Total Invested:</span>
-                  <span>{calc.totalInvested.toFixed(2)}</span>
-                </div>
+                 <div className="grid grid-cols-2 gap-2">
+                   <span className="text-muted-foreground">Installments:</span>
+                   <span>{calc.totalInstallments}</span>
+                 </div>
+                 <div className="grid grid-cols-2 gap-2 font-semibold">
+                   <span>Total Invested:</span>
+                   <span>{calc.totalInvested.toFixed(2)}</span>
+                 </div>
+                 {calc.xirr && calc.futureValue && (
+                   <div className="grid grid-cols-2 gap-2 font-semibold text-green-600">
+                     <span>Future Value ({calc.xirr}% XIRR):</span>
+                     <span>{calc.futureValue.toFixed(2)}</span>
+                   </div>
+                 )}
                 <div className="text-xs text-muted-foreground pt-2 border-t">
                   End Date: {format(addMonths(calc.startDate, calc.duration), "MMM dd, yyyy")}
                   <br />
