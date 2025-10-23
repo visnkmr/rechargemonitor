@@ -16,3 +16,25 @@ export interface RechargeFormData {
   rechargeDate: Date;
   planDays: number;
 }
+
+export type SIPFrequency = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+
+export interface SIPCalculation {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: SIPFrequency;
+  startDate: Date;
+  duration: number; // in months
+  totalInvested: number;
+  totalInstallments: number;
+  createdAt: Date;
+}
+
+export interface SIPFormData {
+  name: string;
+  amount: number;
+  frequency: SIPFrequency;
+  startDate: Date;
+  duration: number;
+}

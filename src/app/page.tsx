@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { RechargeForm } from "@/components/recharge-form";
 import { ActiveRecharges } from "@/components/active-recharges";
 import { RechargeHistory } from "@/components/recharge-history";
@@ -20,10 +21,17 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold">Recharge Monitor</h1>
-          <p className="text-muted-foreground">
-            Track your mobile recharges and monitor active plans.
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold">Recharge Monitor</h1>
+              <p className="text-muted-foreground">
+                Track your mobile recharges and monitor active plans.
+              </p>
+            </div>
+            <Link href="/sip">
+              <Button variant="outline">SIP Calculator</Button>
+            </Link>
+          </div>
         </header>
 
         <div className="mb-8 flex gap-4">
