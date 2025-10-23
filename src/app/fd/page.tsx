@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Calculator, TrendingUp } from "lucide-react";
+import { ArrowLeft, Calculator, TrendingUp, Save } from "lucide-react";
 import { calculateFDMaturity, calculateFDInterest } from "@/lib/financial-utils";
+import { useFDCalculations } from "@/hooks/use-fd-calculations";
+import { FDHistory } from "@/components/fd-history";
 
 const fdSchema = z.object({
   principal: z.number().min(1, "Principal must be greater than 0"),
@@ -24,6 +26,8 @@ const fdSchema = z.object({
 type FDFormValues = z.infer<typeof fdSchema>;
 
 export default function FDPage() {
+  const { calculations, addCalculation, deleteCalculation } = useFDCalculations();
+
   const [calculation, setCalculation] = useState<{
     principal: number;
     annualRate: number;
@@ -138,6 +142,18 @@ export default function FDPage() {
 
   const resetCalculator = () => {
     setCalculation(null);
+  };
+
+  const saveCalculation = () => {
+    if (!calculation) return;
+
+    const fdCalculation = {
+      id: crypto.randomUUID(),
+      ...calculation,
+      createdAt: new Date(),
+    };
+
+    addCalculation(fdCalculation);
   };
 
   const getCompoundingLabel = (frequency: number) => {
@@ -278,12 +294,18 @@ export default function FDPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="submit">Calculate</Button>
-                  <Button type="button" variant="outline" onClick={resetCalculator}>
-                    Reset
-                  </Button>
-                </div>
+                 <div className="flex gap-2">
+                   <Button type="submit">Calculate</Button>
+                   <Button type="button" variant="outline" onClick={resetCalculator}>
+                     Reset
+                   </Button>
+                   {calculation && (
+                     <Button type="button" variant="outline" onClick={saveCalculation}>
+                       <Save className="h-4 w-4 mr-2" />
+                       Save
+                     </Button>
+                   )}
+                 </div>
               </form>
             </CardContent>
           </Card>
@@ -435,6 +457,8 @@ export default function FDPage() {
             </CardContent>
           </Card>
         </div>
+
+        <FDHistory calculations={calculations} onDeleteCalculation={deleteCalculation} />
       </div>
     </div>
   );
