@@ -46,6 +46,9 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
   });
 
   const watchedDate = watch("startDate");
+  const watchedAmount = watch("amount");
+  const watchedFrequency = watch("frequency");
+  const watchedDuration = watch("duration");
 
   // Auto-calculate duration based on start date to today
   React.useEffect(() => {
@@ -73,6 +76,43 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
       }
     }
   }, [watchedDate, setValue]);
+
+  // Calculate total invested amount in real-time
+  const calculateRealTimeTotal = () => {
+    if (!watchedAmount || !watchedFrequency || !watchedDuration) {
+      return 0;
+    }
+
+    // Calculate number of installments per month
+    let installmentsPerMonth: number;
+    switch (watchedFrequency) {
+      case 'hourly':
+        installmentsPerMonth = 30 * 24; // Approximate
+        break;
+      case 'daily':
+        installmentsPerMonth = 30;
+        break;
+      case 'weekly':
+        installmentsPerMonth = 4.33; // Approximate
+        break;
+      case 'monthly':
+        installmentsPerMonth = 1;
+        break;
+      case 'quarterly':
+        installmentsPerMonth = 1/3;
+        break;
+      case 'yearly':
+        installmentsPerMonth = 1/12;
+        break;
+      default:
+        installmentsPerMonth = 1;
+    }
+
+    const totalInstallments = Math.floor(watchedDuration * installmentsPerMonth);
+    return totalInstallments * watchedAmount;
+  };
+
+  const realTimeTotal = calculateRealTimeTotal();
 
   const calculateSIP = (data: SIPFormValues) => {
     const { amount, frequency, startDate, duration } = data;
@@ -212,11 +252,21 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button type="submit">Calculate</Button>
-              <Button type="button" variant="outline" onClick={resetCalculator}>
-                Reset
-              </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button type="submit">Save</Button>
+                <Button type="button" variant="outline" onClick={resetCalculator}>
+                  Reset
+                </Button>
+              </div>
+              {realTimeTotal > 0 && (
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Total Invested</p>
+                  <p className="text-lg font-semibold text-green-600">
+                    ${realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
             </div>
           </form>
         </CardContent>
