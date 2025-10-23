@@ -52,6 +52,9 @@ export default function SIPPage() {
                <Link href="/loan">
                  <Button variant="outline">Loan Calculator</Button>
                </Link>
+               <Link href="/bills">
+                 <Button variant="outline">Bill Manager</Button>
+               </Link>
                <Link href="/export">
                  <Button variant="outline">Export/Import</Button>
                </Link>

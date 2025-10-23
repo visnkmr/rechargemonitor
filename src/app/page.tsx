@@ -14,18 +14,21 @@ import {
   DollarSign,
   Calendar,
   Target,
-  Wallet
+  Wallet,
+  Receipt
 } from "lucide-react";
 import { useRecharges } from "@/hooks/use-recharges";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
 import { useFDCalculations } from "@/hooks/use-fd-calculations";
 import { useLoanCalculations } from "@/hooks/use-loan-calculations";
+import { useBills } from "@/hooks/use-bills";
 
 export default function Home() {
   const { recharges } = useRecharges();
   const { calculations: sipCalculations } = useSIPCalculations();
   const { calculations: fdCalculations } = useFDCalculations();
   const { calculations: loanCalculations } = useLoanCalculations();
+  const { bills } = useBills();
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0);
@@ -65,7 +68,8 @@ export default function Home() {
   }, 0);
 
   const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
-  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend;
+  const monthlyBillsSpend = bills.reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
+  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend;
 
   const quickStats = [
     {
@@ -107,6 +111,14 @@ export default function Home() {
       icon: CreditCard,
       color: "text-red-600",
       bgColor: "bg-red-50",
+    },
+    {
+      title: "Bills",
+      value: bills.length,
+      description: "Recurring expenses",
+      icon: Receipt,
+      color: "text-teal-600",
+      bgColor: "bg-teal-50",
     },
     {
       title: "Monthly Spend",
@@ -156,6 +168,15 @@ export default function Home() {
       bgColor: "bg-red-50",
     },
     {
+      title: "Bill Manager",
+      description: "Track recurring bills and expenses",
+      href: "/bills",
+      icon: Receipt,
+      stats: `${bills.length} bills`,
+      color: "text-teal-600",
+      bgColor: "bg-teal-50",
+    },
+    {
       title: "Export/Import",
       description: "Backup and restore your data",
       href: "/export",
@@ -180,13 +201,13 @@ export default function Home() {
             </div>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
               <Activity className="h-4 w-4 mr-1" />
-              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length} Active Items
+              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + bills.length} Active Items
             </span>
           </div>
         </header>
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 mb-8">
           {quickStats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="p-6">

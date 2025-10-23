@@ -172,6 +172,9 @@ export default function LoanPage() {
                <Link href="/fd">
                  <Button variant="outline" size="sm">FD Calculator</Button>
                </Link>
+               <Link href="/bills">
+                 <Button variant="outline" size="sm">Bill Manager</Button>
+               </Link>
                <Link href="/export">
                  <Button variant="outline" size="sm">Export/Import</Button>
                </Link>

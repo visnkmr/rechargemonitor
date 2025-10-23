@@ -193,6 +193,9 @@ export default function FDPage() {
                <Link href="/loan">
                  <Button variant="outline" size="sm">Loan Calculator</Button>
                </Link>
+               <Link href="/bills">
+                 <Button variant="outline" size="sm">Bill Manager</Button>
+               </Link>
                <Link href="/export">
                  <Button variant="outline" size="sm">Export/Import</Button>
                </Link>

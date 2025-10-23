@@ -2,21 +2,31 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { RechargeForm } from "@/components/recharge-form";
-import { ActiveRecharges } from "@/components/active-recharges";
-import { RechargeHistory } from "@/components/recharge-history";
-import { RechargeStats } from "@/components/recharge-stats";
-import { useRecharges } from "@/hooks/use-recharges";
-import { Recharge } from "@/lib/types";
+import { BillForm } from "@/components/bill-form";
+import { BillList } from "@/components/bill-list";
+import { useBills } from "@/hooks/use-bills";
+import { Bill } from "@/hooks/use-bills";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export default function RechargesPage() {
-  const { recharges, addRecharge, updateRecharge } = useRecharges();
-  const [showHistory, setShowHistory] = useState(false);
+export default function BillsPage() {
+  const { bills, addBill, updateBill, deleteBill } = useBills();
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
-  const handleUpdateRecharge = (id: string, updatedRecharge: Recharge) => {
-    updateRecharge(id, updatedRecharge);
+  const handleSaveBill = (bill: Bill) => {
+    if (editingBill) {
+      updateBill(bill.id, bill);
+    } else {
+      addBill(bill);
+    }
+  };
+
+  const handleEditBill = (bill: Bill) => {
+    setEditingBill(bill);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBill(null);
   };
 
   return (
@@ -32,15 +42,18 @@ export default function RechargesPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-4xl font-bold">Recharge Monitor</h1>
+                <h1 className="text-4xl font-bold">Bill Manager</h1>
                 <p className="text-muted-foreground">
-                  Track your mobile recharges and monitor active plans.
+                  Track your recurring bills and expenses.
                 </p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
               <Link href="/">
                 <Button variant="outline">Dashboard</Button>
+              </Link>
+              <Link href="/recharges">
+                <Button variant="outline">Recharge Monitor</Button>
               </Link>
               <Link href="/sip">
                 <Button variant="outline">SIP Calculator</Button>
@@ -51,9 +64,6 @@ export default function RechargesPage() {
               <Link href="/loan">
                 <Button variant="outline">Loan Calculator</Button>
               </Link>
-              <Link href="/bills">
-                <Button variant="outline">Bill Manager</Button>
-              </Link>
               <Link href="/export">
                 <Button variant="outline">Export/Import</Button>
               </Link>
@@ -61,25 +71,18 @@ export default function RechargesPage() {
           </div>
         </header>
 
-        <RechargeStats recharges={recharges} />
-
-        <div className="mb-8 flex gap-4">
-          <RechargeForm onSubmit={addRecharge} />
-          <Button
-            variant="outline"
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            {showHistory ? "Hide History" : "Show History"}
-          </Button>
+        <div className="space-y-8">
+          <BillForm
+            onSaveBill={handleSaveBill}
+            editingBill={editingBill}
+            onCancelEdit={handleCancelEdit}
+          />
+          <BillList
+            bills={bills}
+            onDeleteBill={deleteBill}
+            onEditBill={handleEditBill}
+          />
         </div>
-
-        <ActiveRecharges recharges={recharges} onUpdateRecharge={handleUpdateRecharge} />
-
-        {showHistory && (
-          <div className="mt-8">
-            <RechargeHistory recharges={recharges} onUpdateRecharge={handleUpdateRecharge} />
-          </div>
-        )}
       </div>
     </div>
   );
