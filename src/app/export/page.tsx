@@ -9,10 +9,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
 import { Recharge, SIPCalculation } from "@/lib/types";
+import { FDCalculation } from "@/hooks/use-fd-calculations";
+import { LoanCalculation } from "@/hooks/use-loan-calculations";
+import { Bill } from "@/hooks/use-bills";
 
 interface ExportData {
   recharges: Recharge[];
   sipCalculations: SIPCalculation[];
+  fdCalculations: FDCalculation[];
+  loanCalculations: LoanCalculation[];
+  bills: Bill[];
   exportDate: string;
   version: string;
 }
@@ -50,12 +56,18 @@ export default function ExportPage() {
       // Get data from localStorage
       const recharges = JSON.parse(localStorage.getItem('recharges') || '[]');
       const sipCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
+      const fdCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
+      const loanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
+      const bills = JSON.parse(localStorage.getItem('bills') || '[]');
 
       const exportData: ExportData = {
         recharges,
         sipCalculations,
+        fdCalculations,
+        loanCalculations,
+        bills,
         exportDate: new Date().toISOString(),
-        version: '1.0'
+        version: '2.0'
       };
 
       // Create and download JSON file
@@ -88,7 +100,7 @@ export default function ExportPage() {
         const importData: ExportData = JSON.parse(content);
 
         // Validate the import data structure
-        if (!importData.recharges || !importData.sipCalculations) {
+        if (!importData.recharges || !importData.sipCalculations || !importData.fdCalculations || !importData.loanCalculations || !importData.bills) {
           throw new Error('Invalid file format. Missing required data.');
         }
 
@@ -106,14 +118,35 @@ export default function ExportPage() {
             localStorage.removeItem('sip-calculations');
           }
 
+          if (importData.fdCalculations.length > 0) {
+            localStorage.setItem('fd-calculations', JSON.stringify(importData.fdCalculations));
+          } else {
+            localStorage.removeItem('fd-calculations');
+          }
+
+          if (importData.loanCalculations.length > 0) {
+            localStorage.setItem('loan-calculations', JSON.stringify(importData.loanCalculations));
+          } else {
+            localStorage.removeItem('loan-calculations');
+          }
+
+          if (importData.bills.length > 0) {
+            localStorage.setItem('bills', JSON.stringify(importData.bills));
+          } else {
+            localStorage.removeItem('bills');
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully replaced data with ${importData.recharges.length} recharges and ${importData.sipCalculations.length} SIP calculations. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully replaced data with ${importData.recharges.length} recharges, ${importData.sipCalculations.length} SIP calculations, ${importData.fdCalculations.length} FD calculations, ${importData.loanCalculations.length} loan calculations, and ${importData.bills.length} bills. Please refresh the page to see the changes.`);
         } else {
           // Append mode - merge with existing data
           const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
           const existingSIPCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
+          const existingFDCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
+          const existingLoanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
+          const existingBills = JSON.parse(localStorage.getItem('bills') || '[]');
 
-          // Generate new IDs for imported recharges to avoid conflicts
+          // Generate new IDs for imported data to avoid conflicts
           const mergedRecharges = [
             ...existingRecharges,
             ...importData.recharges.map(recharge => ({
@@ -122,11 +155,34 @@ export default function ExportPage() {
             }))
           ];
 
-          // Generate new IDs for imported SIP calculations to avoid conflicts
           const mergedSIPCalculations = [
             ...existingSIPCalculations,
             ...importData.sipCalculations.map(calc => ({
               ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const mergedFDCalculations = [
+            ...existingFDCalculations,
+            ...importData.fdCalculations.map(calc => ({
+              ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const mergedLoanCalculations = [
+            ...existingLoanCalculations,
+            ...importData.loanCalculations.map(calc => ({
+              ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const mergedBills = [
+            ...existingBills,
+            ...importData.bills.map(bill => ({
+              ...bill,
               id: crypto.randomUUID() // Generate new ID
             }))
           ];
@@ -139,8 +195,20 @@ export default function ExportPage() {
             localStorage.setItem('sip-calculations', JSON.stringify(mergedSIPCalculations));
           }
 
+          if (mergedFDCalculations.length > 0) {
+            localStorage.setItem('fd-calculations', JSON.stringify(mergedFDCalculations));
+          }
+
+          if (mergedLoanCalculations.length > 0) {
+            localStorage.setItem('loan-calculations', JSON.stringify(mergedLoanCalculations));
+          }
+
+          if (mergedBills.length > 0) {
+            localStorage.setItem('bills', JSON.stringify(mergedBills));
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully appended ${importData.recharges.length} recharges and ${importData.sipCalculations.length} SIP calculations to existing data. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully appended ${importData.recharges.length} recharges, ${importData.sipCalculations.length} SIP calculations, ${importData.fdCalculations.length} FD calculations, ${importData.loanCalculations.length} loan calculations, and ${importData.bills.length} bills to existing data. Please refresh the page to see the changes.`);
         }
 
         // Clear the file input
@@ -160,6 +228,9 @@ export default function ExportPage() {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       localStorage.removeItem('recharges');
       localStorage.removeItem('sip-calculations');
+      localStorage.removeItem('fd-calculations');
+      localStorage.removeItem('loan-calculations');
+      localStorage.removeItem('bills');
       setImportStatus('success');
       setImportMessage('All data cleared successfully. Please refresh the page.');
     }
@@ -178,9 +249,9 @@ export default function ExportPage() {
              </Link>
           </div>
           <h1 className="text-4xl font-bold">Export / Import Data</h1>
-          <p className="text-muted-foreground">
-            Transfer your recharge and SIP calculation data between devices.
-          </p>
+           <p className="text-muted-foreground">
+             Transfer your financial data (recharges, SIP/FD/loan calculations, and bills) between devices.
+           </p>
         </header>
 
         {importStatus !== 'idle' && (
@@ -212,9 +283,9 @@ export default function ExportPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Export All Data
               </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                This will include all recharges and SIP calculations.
-              </p>
+               <p className="text-xs text-muted-foreground mt-2">
+                 This will include all recharges, SIP/FD/loan calculations, and bills.
+               </p>
             </CardContent>
           </Card>
 
@@ -283,9 +354,9 @@ export default function ExportPage() {
             >
               Clear All Data
             </Button>
-            <p className="text-xs text-muted-foreground mt-2">
-              This will permanently delete all recharges and SIP calculations.
-            </p>
+             <p className="text-xs text-muted-foreground mt-2">
+               This will permanently delete all recharges, SIP/FD/loan calculations, and bills.
+             </p>
           </CardContent>
         </Card>
       </div>
