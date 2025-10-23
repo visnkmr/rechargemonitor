@@ -35,7 +35,10 @@ export function RechargeHistory({ recharges, onUpdateRecharge }: RechargeHistory
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p>Amount: {recharge.lastRechargeAmount.toFixed(2)}</p>
-                    <p>Date: {format(recharge.rechargeDate, "PPP")}</p>
+                    <p>Recharge Date: {format(recharge.rechargeDate, "PPP")}</p>
+                    {recharge.endDate && (
+                      <p>End Date: {format(recharge.endDate, "PPP")}</p>
+                    )}
                   </div>
                   <div>
                     <p>Plan Days: {recharge.planDays}</p>

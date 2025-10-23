@@ -40,6 +40,11 @@ export function ActiveRecharges({ recharges, onUpdateRecharge }: ActiveRecharges
                 <p className="text-sm">
                   Per Day Cost: {recharge.perDayCost.toFixed(2)}
                 </p>
+                {recharge.endDate && (
+                  <p className="text-sm text-muted-foreground">
+                    End Date: {recharge.endDate.toLocaleDateString()}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -6,6 +6,16 @@ export const rechargeSchema = z.object({
   lastRechargeAmount: z.number().min(0.01, "Amount must be greater than 0"),
   rechargeDate: z.date(),
   planDays: z.number().min(1, "Plan days must be at least 1"),
+  endDate: z.date().optional(),
+  inputMode: z.enum(['duration', 'endDate']),
+}).refine((data) => {
+  if (data.inputMode === 'endDate') {
+    return data.endDate && data.endDate > data.rechargeDate;
+  }
+  return true;
+}, {
+  message: "End date must be after recharge date",
+  path: ["endDate"],
 });
 
 export type RechargeFormValues = z.infer<typeof rechargeSchema>;
