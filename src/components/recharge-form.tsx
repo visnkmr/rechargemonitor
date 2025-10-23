@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { differenceInDays } from "date-fns";
@@ -89,6 +89,43 @@ export function RechargeForm({
       }
     }
   }, [watchedInputMode, watchedDate, watchedEndDate, setValue]);
+
+  // Save form values to localStorage (only for new recharges, not edits)
+  useEffect(() => {
+    if (!recharge) { // Only save for new recharges, not when editing existing ones
+      const formData = {
+        nickname: watch("nickname"),
+        phoneNumber: watch("phoneNumber"),
+        lastRechargeAmount: watch("lastRechargeAmount"),
+        rechargeDate: watchedDate,
+        planDays: watchedPlanDays,
+        endDate: watchedEndDate,
+        inputMode: watchedInputMode,
+      };
+      localStorage.setItem('recharge-form', JSON.stringify(formData));
+    }
+  }, [watchedDate, watch, watchedEndDate, watchedInputMode, watchedPlanDays, recharge]);
+
+  // Load saved values on mount (only for new recharges)
+  useEffect(() => {
+    if (!recharge) { // Only load for new recharges, not when editing existing ones
+      const saved = localStorage.getItem('recharge-form');
+      if (saved) {
+        try {
+          const formData = JSON.parse(saved);
+          if (formData.nickname) setValue("nickname", formData.nickname);
+          if (formData.phoneNumber) setValue("phoneNumber", formData.phoneNumber);
+          if (formData.lastRechargeAmount) setValue("lastRechargeAmount", formData.lastRechargeAmount);
+          if (formData.rechargeDate) setValue("rechargeDate", new Date(formData.rechargeDate));
+          if (formData.planDays) setValue("planDays", formData.planDays);
+          if (formData.endDate) setValue("endDate", new Date(formData.endDate));
+          if (formData.inputMode) setValue("inputMode", formData.inputMode);
+        } catch (error) {
+          console.error('Failed to load recharge form data:', error);
+        }
+      }
+    }
+  }, [setValue, recharge]);
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);

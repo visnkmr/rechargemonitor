@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,29 @@ export default function ExportPage() {
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState('');
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
+
+  // Load saved import mode preference
+  useEffect(() => {
+    const saved = localStorage.getItem('export-import-preferences');
+    if (saved) {
+      try {
+        const preferences = JSON.parse(saved);
+        if (preferences.importMode) {
+          setImportMode(preferences.importMode);
+        }
+      } catch (error) {
+        console.error('Failed to load export/import preferences:', error);
+      }
+    }
+  }, []);
+
+  // Save import mode preference when it changes
+  useEffect(() => {
+    const preferences = {
+      importMode,
+    };
+    localStorage.setItem('export-import-preferences', JSON.stringify(preferences));
+  }, [importMode]);
 
   const exportData = () => {
     try {
