@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, addMonths } from "date-fns";
+import { format, addMonths, differenceInMonths, startOfMonth } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,33 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
   });
 
   const watchedDate = watch("startDate");
+
+  // Auto-calculate duration based on start date to today
+  React.useEffect(() => {
+    if (watchedDate) {
+      const today = new Date();
+      const startOfStartMonth = startOfMonth(watchedDate);
+      const startOfCurrentMonth = startOfMonth(today);
+
+      // Calculate months difference (inclusive of current month if same month)
+      const monthsDiff = differenceInMonths(startOfCurrentMonth, startOfStartMonth) + 1;
+
+      // Handle different cases:
+      // - Future date: set to minimum duration (1 month)
+      // - Past date: calculate actual months
+      // - Max limit: 1200 months (100 years)
+      if (monthsDiff <= 0) {
+        // Future date or current month
+        setValue("duration", 1);
+      } else if (monthsDiff <= 1200) {
+        // Valid past date
+        setValue("duration", monthsDiff);
+      } else {
+        // Too far in the past, set to maximum
+        setValue("duration", 1200);
+      }
+    }
+  }, [watchedDate, setValue]);
 
   const calculateSIP = (data: SIPFormValues) => {
     const { amount, frequency, startDate, duration } = data;
@@ -174,11 +201,14 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
                   id="duration"
                   type="number"
                   {...register("duration", { valueAsNumber: true })}
-                  placeholder="12"
+                  placeholder="Auto-calculated from start date"
                 />
                 {errors.duration && (
                   <p className="text-sm text-red-500">{errors.duration.message}</p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Duration is automatically calculated based on the start date to today
+                </p>
               </div>
             </div>
 
