@@ -46,7 +46,7 @@ export function SIPHistory({ calculations, onDeleteCalculation }: SIPHistoryProp
               <div className="space-y-2 text-sm">
                 <div className="grid grid-cols-2 gap-2">
                   <span className="text-muted-foreground">Amount:</span>
-                  <span>${calc.amount.toFixed(2)}</span>
+                  <span>{calc.amount.toFixed(2)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <span className="text-muted-foreground">Frequency:</span>
@@ -66,7 +66,7 @@ export function SIPHistory({ calculations, onDeleteCalculation }: SIPHistoryProp
                 </div>
                 <div className="grid grid-cols-2 gap-2 font-semibold">
                   <span>Total Invested:</span>
-                  <span>${calc.totalInvested.toFixed(2)}</span>
+                  <span>{calc.totalInvested.toFixed(2)}</span>
                 </div>
                 <div className="text-xs text-muted-foreground pt-2 border-t">
                   End Date: {format(addMonths(calc.startDate, calc.duration), "MMM dd, yyyy")}

@@ -34,12 +34,12 @@ export function RechargeHistory({ recharges, onUpdateRecharge }: RechargeHistory
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p>Amount: ${recharge.lastRechargeAmount.toFixed(2)}</p>
+                    <p>Amount: {recharge.lastRechargeAmount.toFixed(2)}</p>
                     <p>Date: {format(recharge.rechargeDate, "PPP")}</p>
                   </div>
                   <div>
                     <p>Plan Days: {recharge.planDays}</p>
-                    <p>Per Day Cost: ${recharge.perDayCost.toFixed(2)}</p>
+                    <p>Per Day Cost: {recharge.perDayCost.toFixed(2)}</p>
                     <p>Remaining Days: {recharge.remainingDays}</p>
                   </div>
                 </div>

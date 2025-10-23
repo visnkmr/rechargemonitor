@@ -263,7 +263,7 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total Invested</p>
                   <p className="text-lg font-semibold text-green-600">
-                    ${realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
@@ -282,7 +282,7 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
               <div>
                 <h3 className="font-semibold mb-2">Investment Details</h3>
                 <p><strong>Plan Name:</strong> {calculation.name}</p>
-                <p><strong>Amount per installment:</strong> ${calculation.amount.toFixed(2)}</p>
+                <p><strong>Amount per installment:</strong> {calculation.amount.toFixed(2)}</p>
                 <p><strong>Frequency:</strong> {calculation.frequency}</p>
                 <p><strong>Start Date:</strong> {format(calculation.startDate, "PPP")}</p>
                 <p><strong>Duration:</strong> {calculation.duration} months</p>
@@ -290,7 +290,7 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
               <div>
                 <h3 className="font-semibold mb-2">Results</h3>
                 <p><strong>Total Installments:</strong> {calculation.totalInstallments}</p>
-                <p><strong>Total Amount Invested:</strong> ${calculation.totalInvested.toFixed(2)}</p>
+                <p><strong>Total Amount Invested:</strong> {calculation.totalInvested.toFixed(2)}</p>
                 <p className="text-sm text-muted-foreground">
                   End Date: {format(addMonths(calculation.startDate, calculation.duration), "PPP")}
                 </p>

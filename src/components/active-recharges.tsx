@@ -38,7 +38,7 @@ export function ActiveRecharges({ recharges, onUpdateRecharge }: ActiveRecharges
                   Remaining Days: {recharge.remainingDays}
                 </p>
                 <p className="text-sm">
-                  Per Day Cost: ${recharge.perDayCost.toFixed(2)}
+                  Per Day Cost: {recharge.perDayCost.toFixed(2)}
                 </p>
               </CardContent>
             </Card>
