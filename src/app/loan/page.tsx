@@ -63,6 +63,35 @@ export default function LoanPage() {
   const watchedRemainingPrincipal = watch("remainingPrincipal");
   const watchedEmi = watch("emi");
 
+  // Save form values to localStorage
+  useEffect(() => {
+    const formData = {
+      loanAmount: watchedLoanAmount,
+      totalInstallments: watchedTotalInstallments,
+      remainingInstallments: watchedRemainingInstallments,
+      remainingPrincipal: watchedRemainingPrincipal,
+      emi: watchedEmi,
+    };
+    localStorage.setItem('loan-calculator-form', JSON.stringify(formData));
+  }, [watchedLoanAmount, watchedTotalInstallments, watchedRemainingInstallments, watchedRemainingPrincipal, watchedEmi]);
+
+  // Load saved values on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('loan-calculator-form');
+    if (saved) {
+      try {
+        const formData = JSON.parse(saved);
+        if (formData.loanAmount) setValue("loanAmount", formData.loanAmount);
+        if (formData.totalInstallments) setValue("totalInstallments", formData.totalInstallments);
+        if (formData.remainingInstallments) setValue("remainingInstallments", formData.remainingInstallments);
+        if (formData.remainingPrincipal) setValue("remainingPrincipal", formData.remainingPrincipal);
+        if (formData.emi) setValue("emi", formData.emi);
+      } catch (error) {
+        console.error('Failed to load loan calculator form data:', error);
+      }
+    }
+  }, []); // setValue is stable, no need to include it
+
   // Real-time calculation
   const realTimeCalculation = () => {
     if (!watchedLoanAmount || !watchedTotalInstallments || !watchedRemainingInstallments || watchedRemainingPrincipal === undefined || !watchedEmi) {

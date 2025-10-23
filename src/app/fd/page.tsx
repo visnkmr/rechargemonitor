@@ -54,6 +54,35 @@ export default function FDPage() {
   const watchedFrequency = watch("compoundingFrequency");
   const watchedXirr = watch("xirr");
 
+  // Save form values to localStorage
+  useEffect(() => {
+    const formData = {
+      principal: watchedPrincipal,
+      annualRate: watchedRate,
+      years: watchedYears,
+      compoundingFrequency: watchedFrequency,
+      xirr: watchedXirr,
+    };
+    localStorage.setItem('fd-calculator-form', JSON.stringify(formData));
+  }, [watchedPrincipal, watchedRate, watchedYears, watchedFrequency, watchedXirr]);
+
+  // Load saved values on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('fd-calculator-form');
+    if (saved) {
+      try {
+        const formData = JSON.parse(saved);
+        if (formData.principal) setValue("principal", formData.principal);
+        if (formData.annualRate) setValue("annualRate", formData.annualRate);
+        if (formData.years) setValue("years", formData.years);
+        if (formData.compoundingFrequency) setValue("compoundingFrequency", formData.compoundingFrequency);
+        if (formData.xirr) setValue("xirr", formData.xirr);
+      } catch (error) {
+        console.error('Failed to load FD calculator form data:', error);
+      }
+    }
+  }, []); // setValue is stable, no need to include it
+
   // Real-time calculation
   const realTimeCalculation = () => {
     if (!watchedPrincipal || !watchedRate || !watchedYears || !watchedFrequency) {

@@ -54,6 +54,37 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const watchedDuration = watch("duration");
   const watchedXirr = watch("xirr");
 
+  // Save form values to localStorage
+  useEffect(() => {
+    const formData = {
+      name: watch("name"),
+      amount: watchedAmount,
+      frequency: watchedFrequency,
+      startDate: watchedDate,
+      duration: watchedDuration,
+      xirr: watchedXirr,
+    };
+    localStorage.setItem('sip-calculator-form', JSON.stringify(formData));
+  }, [watchedDate, watchedAmount, watchedFrequency, watchedDuration, watchedXirr, watch]);
+
+  // Load saved values on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('sip-calculator-form');
+    if (saved) {
+      try {
+        const formData = JSON.parse(saved);
+        if (formData.name) setValue("name", formData.name);
+        if (formData.amount) setValue("amount", formData.amount);
+        if (formData.frequency) setValue("frequency", formData.frequency);
+        if (formData.startDate) setValue("startDate", new Date(formData.startDate));
+        if (formData.duration) setValue("duration", formData.duration);
+        if (formData.xirr) setValue("xirr", formData.xirr);
+      } catch (error) {
+        console.error('Failed to load SIP calculator form data:', error);
+      }
+    }
+  }, []); // setValue is stable, no need to include it
+
   // Handle editing mode
   useEffect(() => {
     if (editingCalculation) {
