@@ -84,24 +84,35 @@ export function RechargeForm({
 
   // Auto-calculate missing field based on input mode
   React.useEffect(() => {
+    // Prevent infinite loops by checking if we actually need to update
     if (watchedInputMode === 'startAndDuration' && watchedDate && watchedPlanDays) {
       // Calculate end date from start date + duration
-      const endDate = new Date(watchedDate);
-      endDate.setDate(endDate.getDate() + watchedPlanDays);
-      setValue("endDate", endDate);
+      const calculatedEndDate = new Date(watchedDate);
+      calculatedEndDate.setDate(calculatedEndDate.getDate() + watchedPlanDays);
+
+      // Only update if the calculated date is different from current end date
+      if (!watchedEndDate || calculatedEndDate.getTime() !== watchedEndDate.getTime()) {
+        setValue("endDate", calculatedEndDate);
+      }
     } else if (watchedInputMode === 'endAndDuration' && watchedEndDate && watchedPlanDays) {
       // Calculate start date from end date - duration
-      const startDate = new Date(watchedEndDate);
-      startDate.setDate(startDate.getDate() - watchedPlanDays);
-      setValue("rechargeDate", startDate);
+      const calculatedStartDate = new Date(watchedEndDate);
+      calculatedStartDate.setDate(calculatedStartDate.getDate() - watchedPlanDays);
+
+      // Only update if the calculated date is different from current start date
+      if (!watchedDate || calculatedStartDate.getTime() !== watchedDate.getTime()) {
+        setValue("rechargeDate", calculatedStartDate);
+      }
     } else if (watchedInputMode === 'startAndEnd' && watchedDate && watchedEndDate) {
       // Calculate duration from end date - start date
-      const daysDiff = differenceInDays(watchedEndDate, watchedDate);
-      if (daysDiff > 0) {
-        setValue("planDays", daysDiff);
+      const calculatedDaysDiff = differenceInDays(watchedEndDate, watchedDate);
+
+      // Only update if the calculated duration is different from current plan days
+      if (calculatedDaysDiff > 0 && calculatedDaysDiff !== watchedPlanDays) {
+        setValue("planDays", calculatedDaysDiff);
       }
     }
-  }, [watchedInputMode, watchedDate, watchedEndDate, watchedPlanDays, setValue]);
+  }, [watchedInputMode, watchedDate, watchedEndDate, watchedPlanDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save form values to localStorage (only for new recharges, not edits)
   useEffect(() => {
