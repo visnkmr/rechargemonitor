@@ -40,19 +40,22 @@ export default function SIPPage() {
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Link href="/">
-                <Button variant="outline">Recharge Monitor</Button>
-              </Link>
-              <Link href="/fd">
-                <Button variant="outline">FD Calculator</Button>
-              </Link>
-              <Link href="/loan">
-                <Button variant="outline">Loan Calculator</Button>
-              </Link>
-              <Link href="/export">
-                <Button variant="outline">Export/Import</Button>
-              </Link>
-            </div>
+               <Link href="/">
+                 <Button variant="outline">Dashboard</Button>
+               </Link>
+               <Link href="/recharges">
+                 <Button variant="outline">Recharge Monitor</Button>
+               </Link>
+               <Link href="/fd">
+                 <Button variant="outline">FD Calculator</Button>
+               </Link>
+               <Link href="/loan">
+                 <Button variant="outline">Loan Calculator</Button>
+               </Link>
+               <Link href="/export">
+                 <Button variant="outline">Export/Import</Button>
+               </Link>
+             </div>
           </div>
         </header>
 

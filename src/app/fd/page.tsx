@@ -181,16 +181,22 @@ export default function FDPage() {
               </Button>
             </Link>
             <div className="flex gap-2">
-              <Link href="/sip">
-                <Button variant="outline" size="sm">SIP Calculator</Button>
-              </Link>
-              <Link href="/loan">
-                <Button variant="outline" size="sm">Loan Calculator</Button>
-              </Link>
-              <Link href="/export">
-                <Button variant="outline" size="sm">Export/Import</Button>
-              </Link>
-            </div>
+               <Link href="/">
+                 <Button variant="outline" size="sm">Dashboard</Button>
+               </Link>
+               <Link href="/recharges">
+                 <Button variant="outline" size="sm">Recharge Monitor</Button>
+               </Link>
+               <Link href="/sip">
+                 <Button variant="outline" size="sm">SIP Calculator</Button>
+               </Link>
+               <Link href="/loan">
+                 <Button variant="outline" size="sm">Loan Calculator</Button>
+               </Link>
+               <Link href="/export">
+                 <Button variant="outline" size="sm">Export/Import</Button>
+               </Link>
+             </div>
           </div>
           <h1 className="text-4xl font-bold">FD Calculator</h1>
           <p className="text-muted-foreground">

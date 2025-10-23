@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calculator, TrendingDown, Calendar } from "lucide-react";
+import { ArrowLeft, Calculator, TrendingDown, Calendar, Save } from "lucide-react";
 import { calculateLoanDetailsWithTotal } from "@/lib/financial-utils";
+import { useLoanCalculations } from "@/hooks/use-loan-calculations";
+import { LoanHistory } from "@/components/loan-history";
 
 const loanSchema = z.object({
   loanAmount: z.number().min(1, "Loan amount must be greater than 0"),
@@ -33,6 +35,8 @@ const loanSchema = z.object({
 type LoanFormValues = z.infer<typeof loanSchema>;
 
 export default function LoanPage() {
+  const { calculations, addCalculation, deleteCalculation } = useLoanCalculations();
+
   const [calculation, setCalculation] = useState<{
     loanAmount: number;
     totalInstallments: number;
@@ -56,6 +60,7 @@ export default function LoanPage() {
     formState: { errors },
     watch,
     setValue,
+    reset,
   } = useForm<LoanFormValues>({
     resolver: zodResolver(loanSchema),
   });
@@ -127,7 +132,20 @@ export default function LoanPage() {
   };
 
   const resetCalculator = () => {
+    reset();
     setCalculation(null);
+  };
+
+  const saveCalculation = () => {
+    if (!calculation) return;
+
+    const loanCalculation = {
+      id: crypto.randomUUID(),
+      ...calculation,
+      createdAt: new Date(),
+    };
+
+    addCalculation(loanCalculation);
   };
 
   return (
@@ -142,16 +160,22 @@ export default function LoanPage() {
               </Button>
             </Link>
             <div className="flex gap-2">
-              <Link href="/sip">
-                <Button variant="outline" size="sm">SIP Calculator</Button>
-              </Link>
-              <Link href="/fd">
-                <Button variant="outline" size="sm">FD Calculator</Button>
-              </Link>
-              <Link href="/export">
-                <Button variant="outline" size="sm">Export/Import</Button>
-              </Link>
-            </div>
+               <Link href="/">
+                 <Button variant="outline" size="sm">Dashboard</Button>
+               </Link>
+               <Link href="/recharges">
+                 <Button variant="outline" size="sm">Recharge Monitor</Button>
+               </Link>
+               <Link href="/sip">
+                 <Button variant="outline" size="sm">SIP Calculator</Button>
+               </Link>
+               <Link href="/fd">
+                 <Button variant="outline" size="sm">FD Calculator</Button>
+               </Link>
+               <Link href="/export">
+                 <Button variant="outline" size="sm">Export/Import</Button>
+               </Link>
+             </div>
           </div>
           <h1 className="text-4xl font-bold">Loan Calculator</h1>
           <p className="text-muted-foreground">
@@ -240,12 +264,18 @@ export default function LoanPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="submit">Calculate</Button>
-                  <Button type="button" variant="outline" onClick={resetCalculator}>
-                    Reset
-                  </Button>
-                </div>
+                 <div className="flex gap-2">
+                   <Button type="submit">Calculate</Button>
+                   <Button type="button" variant="outline" onClick={resetCalculator}>
+                     Reset
+                   </Button>
+                   {calculation && (
+                     <Button type="button" variant="outline" onClick={saveCalculation}>
+                       <Save className="h-4 w-4 mr-2" />
+                       Save
+                     </Button>
+                   )}
+                 </div>
               </form>
             </CardContent>
           </Card>
@@ -408,6 +438,8 @@ export default function LoanPage() {
             </CardContent>
           </Card>
         </div>
+
+        <LoanHistory calculations={calculations} onDeleteCalculation={deleteCalculation} />
       </div>
     </div>
   );

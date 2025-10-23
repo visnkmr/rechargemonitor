@@ -170,12 +170,12 @@ export default function ExportPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-8">
           <div className="flex items-center gap-4 mb-4">
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Home
-              </Button>
-            </Link>
+             <Link href="/">
+               <Button variant="outline" size="sm">
+                 <ArrowLeft className="h-4 w-4 mr-2" />
+                 Back to Dashboard
+               </Button>
+             </Link>
           </div>
           <h1 className="text-4xl font-bold">Export / Import Data</h1>
           <p className="text-muted-foreground">
