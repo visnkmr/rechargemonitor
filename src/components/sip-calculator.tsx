@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, addMonths, differenceInMonths, startOfMonth } from "date-fns";
@@ -16,6 +16,8 @@ import { SIPCalculation, SIPFrequency } from "@/lib/types";
 
 interface SIPCalculatorProps {
   onSaveCalculation: (calculation: SIPCalculation) => void;
+  editingCalculation?: SIPCalculation | null;
+  onCancelEdit?: () => void;
 }
 
 const FREQUENCY_OPTIONS = [
@@ -27,7 +29,7 @@ const FREQUENCY_OPTIONS = [
   { value: 'yearly', label: 'Yearly' },
 ] as const;
 
-export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
+export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelEdit }: SIPCalculatorProps) {
   const [calculation, setCalculation] = useState<SIPCalculation | null>(null);
 
   const {
@@ -50,8 +52,26 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
   const watchedFrequency = watch("frequency");
   const watchedDuration = watch("duration");
 
+  // Handle editing mode
+  useEffect(() => {
+    if (editingCalculation) {
+      reset({
+        name: editingCalculation.name,
+        amount: editingCalculation.amount,
+        frequency: editingCalculation.frequency,
+        startDate: editingCalculation.startDate,
+        duration: editingCalculation.duration,
+      });
+    } else {
+      reset({
+        startDate: new Date(),
+        frequency: 'monthly',
+      });
+    }
+  }, [editingCalculation, reset]);
+
   // Auto-calculate duration based on start date to today
-  React.useEffect(() => {
+  useEffect(() => {
     if (watchedDate) {
       const today = new Date();
       const startOfStartMonth = startOfMonth(watchedDate);
@@ -117,7 +137,7 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
   const calculateSIP = (data: SIPFormValues) => {
     const { amount, frequency, startDate, duration } = data;
 
-    // Calculate number of installments based on frequency
+    // Calculate number of installments per month
     let installmentsPerMonth: number;
     switch (frequency) {
       case 'hourly':
@@ -146,7 +166,7 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
     const totalInvested = totalInstallments * amount;
 
     const sipCalculation: SIPCalculation = {
-      id: crypto.randomUUID(),
+      id: editingCalculation?.id || crypto.randomUUID(),
       name: data.name,
       amount,
       frequency,
@@ -154,25 +174,38 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
       duration,
       totalInvested,
       totalInstallments,
-      createdAt: new Date(),
+      createdAt: editingCalculation?.createdAt || new Date(),
     };
 
     setCalculation(sipCalculation);
     onSaveCalculation(sipCalculation);
+
+    // If editing, call cancel edit callback
+    if (editingCalculation && onCancelEdit) {
+      onCancelEdit();
+    }
   };
 
   const resetCalculator = () => {
     reset();
     setCalculation(null);
+    if (editingCalculation && onCancelEdit) {
+      onCancelEdit();
+    }
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>SIP Calculator</CardTitle>
+          <CardTitle>
+            {editingCalculation ? `Edit SIP: ${editingCalculation.name}` : 'SIP Calculator'}
+          </CardTitle>
           <CardDescription>
-            Calculate your total investment amount for Systematic Investment Plans
+            {editingCalculation
+              ? 'Update your Systematic Investment Plan calculation.'
+              : 'Calculate your Systematic Investment Plan totals and track your investment history.'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -253,9 +286,9 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
 
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                <Button type="submit">Save</Button>
+                <Button type="submit">{editingCalculation ? 'Update' : 'Save'}</Button>
                 <Button type="button" variant="outline" onClick={resetCalculator}>
-                  Reset
+                  {editingCalculation ? 'Cancel' : 'Reset'}
                 </Button>
               </div>
               {realTimeTotal > 0 && (

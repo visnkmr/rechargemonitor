@@ -2,16 +2,17 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Edit } from "lucide-react";
 import { SIPCalculation } from "@/lib/types";
 import { format, addMonths } from "date-fns";
 
 interface SIPHistoryProps {
   calculations: SIPCalculation[];
   onDeleteCalculation: (id: string) => void;
+  onEditCalculation: (calculation: SIPCalculation) => void;
 }
 
-export function SIPHistory({ calculations, onDeleteCalculation }: SIPHistoryProps) {
+export function SIPHistory({ calculations, onDeleteCalculation, onEditCalculation }: SIPHistoryProps) {
   if (calculations.length === 0) {
     return (
       <Card>
@@ -33,14 +34,24 @@ export function SIPHistory({ calculations, onDeleteCalculation }: SIPHistoryProp
           <Card key={calc.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg">{calc.name}</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDeleteCalculation(calc.id)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditCalculation(calc)}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDeleteCalculation(calc.id)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">

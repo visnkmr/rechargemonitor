@@ -1,15 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { SIPCalculator } from "@/components/sip-calculator";
 import { SIPHistory } from "@/components/sip-history";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
 import { SIPCalculation } from "@/lib/types";
 
 export default function SIPPage() {
-  const { calculations, addCalculation, deleteCalculation } = useSIPCalculations();
+  const { calculations, addCalculation, updateCalculation, deleteCalculation } = useSIPCalculations();
+  const [editingCalculation, setEditingCalculation] = useState<SIPCalculation | null>(null);
 
   const handleSaveCalculation = (calculation: SIPCalculation) => {
-    addCalculation(calculation);
+    if (editingCalculation) {
+      updateCalculation(calculation.id, calculation);
+    } else {
+      addCalculation(calculation);
+    }
+  };
+
+  const handleEditCalculation = (calculation: SIPCalculation) => {
+    setEditingCalculation(calculation);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCalculation(null);
   };
 
   return (
@@ -23,10 +37,15 @@ export default function SIPPage() {
         </header>
 
         <div className="space-y-8">
-          <SIPCalculator onSaveCalculation={handleSaveCalculation} />
+          <SIPCalculator
+            onSaveCalculation={handleSaveCalculation}
+            editingCalculation={editingCalculation}
+            onCancelEdit={handleCancelEdit}
+          />
           <SIPHistory
             calculations={calculations}
             onDeleteCalculation={deleteCalculation}
+            onEditCalculation={handleEditCalculation}
           />
         </div>
       </div>

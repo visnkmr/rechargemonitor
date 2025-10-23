@@ -42,9 +42,19 @@ export function useSIPCalculations() {
     setCalculations((current) => [calculation, ...current]);
   };
 
+  const updateCalculation = (id: string, updatedCalculation: Partial<SIPCalculation>) => {
+    setCalculations((current) =>
+      current.map((calc) =>
+        calc.id === id
+          ? { ...calc, ...updatedCalculation }
+          : calc
+      )
+    );
+  };
+
   const deleteCalculation = (id: string) => {
     setCalculations((current) => current.filter(calc => calc.id !== id));
   };
 
-  return { calculations, addCalculation, deleteCalculation };
+  return { calculations, addCalculation, updateCalculation, deleteCalculation };
 }
