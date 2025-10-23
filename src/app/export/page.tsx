@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
 import { Recharge, SIPCalculation } from "@/lib/types";
 
@@ -18,6 +20,7 @@ interface ExportData {
 export default function ExportPage() {
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState('');
+  const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
 
   const exportData = () => {
     try {
@@ -66,18 +69,56 @@ export default function ExportPage() {
           throw new Error('Invalid file format. Missing required data.');
         }
 
-        // Import recharges
-        if (importData.recharges.length > 0) {
-          localStorage.setItem('recharges', JSON.stringify(importData.recharges));
-        }
+        if (importMode === 'replace') {
+          // Replace mode - completely replace existing data
+          if (importData.recharges.length > 0) {
+            localStorage.setItem('recharges', JSON.stringify(importData.recharges));
+          } else {
+            localStorage.removeItem('recharges');
+          }
 
-        // Import SIP calculations
-        if (importData.sipCalculations.length > 0) {
-          localStorage.setItem('sip-calculations', JSON.stringify(importData.sipCalculations));
-        }
+          if (importData.sipCalculations.length > 0) {
+            localStorage.setItem('sip-calculations', JSON.stringify(importData.sipCalculations));
+          } else {
+            localStorage.removeItem('sip-calculations');
+          }
 
-        setImportStatus('success');
-        setImportMessage(`Successfully imported ${importData.recharges.length} recharges and ${importData.sipCalculations.length} SIP calculations. Please refresh the page to see the changes.`);
+          setImportStatus('success');
+          setImportMessage(`Successfully replaced data with ${importData.recharges.length} recharges and ${importData.sipCalculations.length} SIP calculations. Please refresh the page to see the changes.`);
+        } else {
+          // Append mode - merge with existing data
+          const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
+          const existingSIPCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
+
+          // Generate new IDs for imported recharges to avoid conflicts
+          const mergedRecharges = [
+            ...existingRecharges,
+            ...importData.recharges.map(recharge => ({
+              ...recharge,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          // Generate new IDs for imported SIP calculations to avoid conflicts
+          const mergedSIPCalculations = [
+            ...existingSIPCalculations,
+            ...importData.sipCalculations.map(calc => ({
+              ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          if (mergedRecharges.length > 0) {
+            localStorage.setItem('recharges', JSON.stringify(mergedRecharges));
+          }
+
+          if (mergedSIPCalculations.length > 0) {
+            localStorage.setItem('sip-calculations', JSON.stringify(mergedSIPCalculations));
+          }
+
+          setImportStatus('success');
+          setImportMessage(`Successfully appended ${importData.recharges.length} recharges and ${importData.sipCalculations.length} SIP calculations to existing data. Please refresh the page to see the changes.`);
+        }
 
         // Clear the file input
         event.target.value = '';
@@ -166,6 +207,20 @@ export default function ExportPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Import Mode</Label>
+                  <RadioGroup value={importMode} onValueChange={(value: 'replace' | 'append') => setImportMode(value)}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="replace" id="replace" />
+                      <Label htmlFor="replace" className="text-sm">Replace existing data</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="append" id="append" />
+                      <Label htmlFor="append" className="text-sm">Append to existing data</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
                 <input
                   type="file"
                   accept=".json"
@@ -183,6 +238,7 @@ export default function ExportPage() {
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Only JSON files exported from this application are supported.
+                  {importMode === 'replace' ? ' This will replace all existing data.' : ' This will add to your existing data.'}
                 </p>
               </div>
             </CardContent>

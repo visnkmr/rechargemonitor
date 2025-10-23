@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RechargeForm } from "@/components/recharge-form";
 import { ActiveRecharges } from "@/components/active-recharges";
 import { RechargeHistory } from "@/components/recharge-history";
+import { RechargeStats } from "@/components/recharge-stats";
 import { useRecharges } from "@/hooks/use-recharges";
 import { Recharge } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ export default function Home() {
             </div>
           </div>
         </header>
+
+        <RechargeStats recharges={recharges} />
 
         <div className="mb-8 flex gap-4">
           <RechargeForm onSubmit={addRecharge} />
