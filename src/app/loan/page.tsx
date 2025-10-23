@@ -10,10 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calculator, TrendingDown, Calendar } from "lucide-react";
-import { calculateLoanDetails } from "@/lib/financial-utils";
+import { calculateLoanDetailsWithTotal } from "@/lib/financial-utils";
 
 const loanSchema = z.object({
   loanAmount: z.number().min(1, "Loan amount must be greater than 0"),
+  totalInstallments: z.number().min(1, "Total installments must be at least 1"),
   remainingInstallments: z.number().min(1, "Remaining installments must be at least 1"),
   remainingPrincipal: z.number().min(0, "Remaining principal cannot be negative"),
   emi: z.number().min(1, "EMI must be greater than 0"),
@@ -22,6 +23,11 @@ const loanSchema = z.object({
 }, {
   message: "Remaining principal cannot exceed loan amount",
   path: ["remainingPrincipal"],
+}).refine((data) => {
+  return data.remainingInstallments <= data.totalInstallments;
+}, {
+  message: "Remaining installments cannot exceed total installments",
+  path: ["remainingInstallments"],
 });
 
 type LoanFormValues = z.infer<typeof loanSchema>;
@@ -29,6 +35,7 @@ type LoanFormValues = z.infer<typeof loanSchema>;
 export default function LoanPage() {
   const [calculation, setCalculation] = useState<{
     loanAmount: number;
+    totalInstallments: number;
     remainingInstallments: number;
     remainingPrincipal: number;
     emi: number;
@@ -38,6 +45,7 @@ export default function LoanPage() {
     xirr: number;
     remainingMonths: number;
     remainingYears: number;
+    totalInterestOverLoan: number;
   } | null>(null);
 
   const {
@@ -50,18 +58,20 @@ export default function LoanPage() {
   });
 
   const watchedLoanAmount = watch("loanAmount");
+  const watchedTotalInstallments = watch("totalInstallments");
   const watchedRemainingInstallments = watch("remainingInstallments");
   const watchedRemainingPrincipal = watch("remainingPrincipal");
   const watchedEmi = watch("emi");
 
   // Real-time calculation
   const realTimeCalculation = () => {
-    if (!watchedLoanAmount || !watchedRemainingInstallments || watchedRemainingPrincipal === undefined || !watchedEmi) {
+    if (!watchedLoanAmount || !watchedTotalInstallments || !watchedRemainingInstallments || watchedRemainingPrincipal === undefined || !watchedEmi) {
       return null;
     }
 
-    return calculateLoanDetails(
+    return calculateLoanDetailsWithTotal(
       watchedLoanAmount,
+      watchedTotalInstallments,
       watchedRemainingInstallments,
       watchedRemainingPrincipal,
       watchedEmi
@@ -71,11 +81,12 @@ export default function LoanPage() {
   const realTimeResult = realTimeCalculation();
 
   const calculateLoan = (data: LoanFormValues) => {
-    const { loanAmount, remainingInstallments, remainingPrincipal, emi } = data;
+    const { loanAmount, totalInstallments, remainingInstallments, remainingPrincipal, emi } = data;
 
-    const result = calculateLoanDetails(loanAmount, remainingInstallments, remainingPrincipal, emi);
+    const result = calculateLoanDetailsWithTotal(loanAmount, totalInstallments, remainingInstallments, remainingPrincipal, emi);
     setCalculation({
       loanAmount,
+      totalInstallments,
       remainingInstallments,
       remainingPrincipal,
       emi,
@@ -140,6 +151,19 @@ export default function LoanPage() {
                   />
                   {errors.loanAmount && (
                     <p className="text-sm text-red-500">{errors.loanAmount.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="totalInstallments">Total Installments</Label>
+                  <Input
+                    id="totalInstallments"
+                    type="number"
+                    {...register("totalInstallments", { valueAsNumber: true })}
+                    placeholder="60"
+                  />
+                  {errors.totalInstallments && (
+                    <p className="text-sm text-red-500">{errors.totalInstallments.message}</p>
                   )}
                 </div>
 
@@ -210,6 +234,10 @@ export default function LoanPage() {
                       <p className="font-semibold">{watchedLoanAmount?.toLocaleString()}</p>
                     </div>
                     <div>
+                      <p className="text-muted-foreground">Total Installments:</p>
+                      <p className="font-semibold">{watchedTotalInstallments}</p>
+                    </div>
+                    <div>
                       <p className="text-muted-foreground">Remaining Principal:</p>
                       <p className="font-semibold">{watchedRemainingPrincipal?.toLocaleString()}</p>
                     </div>
@@ -261,6 +289,10 @@ export default function LoanPage() {
                       <p className="font-semibold">{calculation.loanAmount.toLocaleString()}</p>
                     </div>
                     <div>
+                      <p className="text-muted-foreground">Total Installments:</p>
+                      <p className="font-semibold">{calculation.totalInstallments}</p>
+                    </div>
+                    <div>
                       <p className="text-muted-foreground">Remaining Principal:</p>
                       <p className="font-semibold">{calculation.remainingPrincipal.toLocaleString()}</p>
                     </div>
@@ -292,6 +324,22 @@ export default function LoanPage() {
                           <p className="text-muted-foreground">Total Interest Paid So Far:</p>
                           <p className="text-2xl font-bold text-red-600">
                             {calculation.totalInterestPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            ({calculation.paidInstallments} installments paid)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-orange-600" />
+                        <div>
+                          <p className="text-muted-foreground">Total Interest Over Loan Period:</p>
+                          <p className="text-2xl font-bold text-orange-600">
+                            {calculation.totalInterestOverLoan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            (Total payable: {calculation.totalAmountPayable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                           </p>
                         </div>
                       </div>

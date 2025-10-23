@@ -150,3 +150,56 @@ export function calculateLoanDetails(
     remainingYears
   };
 }
+
+/**
+ * Calculate comprehensive loan details including total installments
+ */
+export function calculateLoanDetailsWithTotal(
+  loanAmount: number,
+  totalInstallments: number,
+  remainingInstallments: number,
+  remainingPrincipal: number,
+  emi: number
+) {
+  // Calculate paid installments
+  const paidInstallments = totalInstallments - remainingInstallments;
+
+  // Total interest paid so far
+  const totalPaid = (loanAmount - remainingPrincipal);
+  const totalInterestPaid = totalPaid - (loanAmount - remainingPrincipal);
+
+  // Total interest over entire loan period
+  const totalAmountPayable = emi * totalInstallments;
+  const totalInterestOverLoan = totalAmountPayable - loanAmount;
+
+  // Future cash flows for XIRR calculation (remaining payments)
+  const cashFlows = [
+    { amount: -remainingPrincipal, date: new Date() } // Initial outflow (remaining principal)
+  ];
+
+  // Add remaining EMI payments
+  for (let i = 1; i <= remainingInstallments; i++) {
+    const paymentDate = new Date();
+    paymentDate.setMonth(paymentDate.getMonth() + i);
+    cashFlows.push({ amount: emi, date: paymentDate });
+  }
+
+  // Calculate XIRR for remaining payments
+  const xirr = calculateXIRR(cashFlows);
+
+  // Calculate remaining time
+  const remainingMonths = remainingInstallments;
+  const remainingYears = remainingMonths / 12;
+
+  return {
+    totalInterestPaid,
+    totalAmountPaid: totalPaid,
+    remainingAmount: remainingPrincipal + (emi * remainingInstallments),
+    xirr,
+    remainingMonths,
+    remainingYears,
+    totalInterestOverLoan,
+    totalAmountPayable,
+    paidInstallments,
+  };
+}
