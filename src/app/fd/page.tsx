@@ -18,6 +18,7 @@ const fdSchema = z.object({
   annualRate: z.number().min(0.01, "Rate must be greater than 0").max(50, "Rate cannot exceed 50%"),
   years: z.number().min(0.1, "Years must be at least 0.1").max(50, "Years cannot exceed 50"),
   compoundingFrequency: z.number().min(1, "Compounding frequency must be at least 1").max(365, "Cannot exceed daily compounding"),
+  xirr: z.number().min(0).max(100).optional(),
 });
 
 type FDFormValues = z.infer<typeof fdSchema>;
@@ -30,6 +31,8 @@ export default function FDPage() {
     compoundingFrequency: number;
     maturityAmount: number;
     totalInterest: number;
+    xirr?: number;
+    xirrMaturityAmount?: number;
   } | null>(null);
 
   const {
@@ -49,6 +52,7 @@ export default function FDPage() {
   const watchedRate = watch("annualRate");
   const watchedYears = watch("years");
   const watchedFrequency = watch("compoundingFrequency");
+  const watchedXirr = watch("xirr");
 
   // Real-time calculation
   const realTimeCalculation = () => {
@@ -59,6 +63,11 @@ export default function FDPage() {
     const maturityAmount = calculateFDMaturity(watchedPrincipal, watchedRate, watchedYears, watchedFrequency);
     const totalInterest = calculateFDInterest(watchedPrincipal, maturityAmount);
 
+    let xirrMaturityAmount: number | undefined;
+    if (watchedXirr && watchedXirr > 0) {
+      xirrMaturityAmount = calculateFDMaturity(watchedPrincipal, watchedXirr, watchedYears, watchedFrequency);
+    }
+
     return {
       principal: watchedPrincipal,
       annualRate: watchedRate,
@@ -66,16 +75,23 @@ export default function FDPage() {
       compoundingFrequency: watchedFrequency,
       maturityAmount,
       totalInterest,
+      xirr: watchedXirr,
+      xirrMaturityAmount,
     };
   };
 
   const realTimeResult = realTimeCalculation();
 
   const calculateFD = (data: FDFormValues) => {
-    const { principal, annualRate, years, compoundingFrequency } = data;
+    const { principal, annualRate, years, compoundingFrequency, xirr } = data;
 
     const maturityAmount = calculateFDMaturity(principal, annualRate, years, compoundingFrequency);
     const totalInterest = calculateFDInterest(principal, maturityAmount);
+
+    let xirrMaturityAmount: number | undefined;
+    if (xirr && xirr > 0) {
+      xirrMaturityAmount = calculateFDMaturity(principal, xirr, years, compoundingFrequency);
+    }
 
     const result = {
       principal,
@@ -84,6 +100,8 @@ export default function FDPage() {
       compoundingFrequency,
       maturityAmount,
       totalInterest,
+      xirr,
+      xirrMaturityAmount,
     };
 
     setCalculation(result);
@@ -191,6 +209,23 @@ export default function FDPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="xirr">Expected Return (XIRR %)</Label>
+                  <Input
+                    id="xirr"
+                    type="number"
+                    step="0.01"
+                    {...register("xirr", { valueAsNumber: true })}
+                    placeholder="Optional - e.g., 7.5"
+                  />
+                  {errors.xirr && (
+                    <p className="text-sm text-red-500">{errors.xirr.message}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Compare with different expected return rate
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label>Compounding Frequency</Label>
                   <Select
                     onValueChange={(value) => setValue("compoundingFrequency", parseInt(value))}
@@ -253,18 +288,44 @@ export default function FDPage() {
                     </div>
                   </div>
                   <div className="border-t pt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-muted-foreground">Maturity Amount:</p>
-                        <p className="text-lg font-bold text-green-600">
-                          {realTimeResult.maturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground">Initial Investment:</p>
+                          <p className="text-lg font-bold">
+                            {realTimeResult.principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Maturity Amount ({realTimeResult.annualRate}%):</p>
+                          <p className="text-lg font-bold text-green-600">
+                            {realTimeResult.maturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Total Interest:</p>
-                        <p className="text-lg font-bold text-blue-600">
-                          {realTimeResult.totalInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                      {realTimeResult.xirr && realTimeResult.xirrMaturityAmount && (
+                        <div className="grid grid-cols-2 gap-4 border-t pt-2">
+                          <div>
+                            <p className="text-muted-foreground">At {realTimeResult.xirr}% XIRR:</p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {realTimeResult.xirrMaturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Difference:</p>
+                            <p className={`text-lg font-bold ${(realTimeResult.xirrMaturityAmount - realTimeResult.maturityAmount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(realTimeResult.xirrMaturityAmount - realTimeResult.maturityAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground">Total Interest:</p>
+                          <p className="text-lg font-bold text-blue-600">
+                            {realTimeResult.totalInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -294,17 +355,43 @@ export default function FDPage() {
 
                   <div className="border-t pt-4 space-y-4">
                     <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <p className="text-muted-foreground">Maturity Amount:</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {calculation.maturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground">Initial Investment:</p>
+                          <p className="text-2xl font-bold">
+                            {calculation.principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Maturity Amount ({calculation.annualRate}%):</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {calculation.maturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Total Interest Earned:</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {calculation.totalInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                      {calculation.xirr && calculation.xirrMaturityAmount && (
+                        <div className="grid grid-cols-2 gap-4 border-t pt-2">
+                          <div>
+                            <p className="text-muted-foreground">At {calculation.xirr}% XIRR:</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {calculation.xirrMaturityAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Difference:</p>
+                            <p className={`text-2xl font-bold ${(calculation.xirrMaturityAmount - calculation.maturityAmount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(calculation.xirrMaturityAmount - calculation.maturityAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground">Total Interest Earned:</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {calculation.totalInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
