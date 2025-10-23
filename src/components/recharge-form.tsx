@@ -224,7 +224,6 @@ export function RechargeForm({
               <DateInput
                 date={watchedDate}
                 onDateChange={(newDate) => setValue("rechargeDate", newDate || new Date())}
-                placeholder="Select or enter date"
               />
             </div>
           </div>
@@ -253,7 +252,6 @@ export function RechargeForm({
                 <DateInput
                   date={watchedEndDate}
                   onDateChange={(newDate) => setValue("endDate", newDate)}
-                  placeholder="Select or enter end date"
                 />
               </div>
               {errors.endDate && (

@@ -231,7 +231,6 @@ export function SIPCalculator({ onSaveCalculation }: SIPCalculatorProps) {
                 <DateInput
                   date={watchedDate}
                   onDateChange={(newDate) => setValue("startDate", newDate || new Date())}
-                  placeholder="Select or enter date"
                 />
               </div>
 
