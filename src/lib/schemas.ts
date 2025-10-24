@@ -35,3 +35,23 @@ export const sipSchema = z.object({
 });
 
 export type SIPFormValues = z.infer<typeof sipSchema>;
+
+export const xirrSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  mode: z.enum(['calculateXIRR', 'calculateFinal']),
+  initialAmount: z.number().min(0.01, "Initial amount must be greater than 0"),
+  finalAmount: z.number().min(0.01, "Final amount must be greater than 0").optional(),
+  xirr: z.number().min(0).max(100, "XIRR must be between 0 and 100").optional(),
+  periodYears: z.number().min(0.01, "Period must be greater than 0"),
+}).refine((data) => {
+  if (data.mode === 'calculateXIRR') {
+    return data.finalAmount !== undefined && data.finalAmount > 0;
+  } else {
+    return data.xirr !== undefined && data.xirr >= 0;
+  }
+}, {
+  message: "Please provide the required fields for the selected calculation mode",
+  path: ["mode"],
+});
+
+export type XIRRFormValues = z.infer<typeof xirrSchema>;

@@ -190,12 +190,15 @@ export default function FDPage() {
                <Link href="/sip">
                  <Button variant="outline" size="sm">SIP Calculator</Button>
                </Link>
-               <Link href="/loan">
-                 <Button variant="outline" size="sm">Loan Calculator</Button>
-               </Link>
-               <Link href="/bills">
-                 <Button variant="outline" size="sm">Bill Manager</Button>
-               </Link>
+                <Link href="/loan">
+                  <Button variant="outline" size="sm">Loan Calculator</Button>
+                </Link>
+                <Link href="/xirr">
+                  <Button variant="outline" size="sm">XIRR Calculator</Button>
+                </Link>
+                <Link href="/bills">
+                  <Button variant="outline" size="sm">Bill Manager</Button>
+                </Link>
                <Link href="/export">
                  <Button variant="outline" size="sm">Export/Import</Button>
                </Link>

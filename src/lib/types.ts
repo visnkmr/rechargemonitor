@@ -47,3 +47,25 @@ export interface SIPFormData {
   xirr?: number;
   enabled?: boolean;
 }
+
+export type XIRRMode = 'calculateXIRR' | 'calculateFinal';
+
+export interface XIRRCalculation {
+  id: string;
+  name: string;
+  mode: XIRRMode;
+  initialAmount: number;
+  finalAmount?: number;
+  xirr?: number;
+  periodYears: number;
+  createdAt: Date;
+}
+
+export interface XIRRFormData {
+  name: string;
+  mode: XIRRMode;
+  initialAmount: number;
+  finalAmount?: number;
+  xirr?: number;
+  periodYears: number;
+}

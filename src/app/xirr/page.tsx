@@ -2,17 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SIPCalculator } from "@/components/sip-calculator";
-import { SIPHistory } from "@/components/sip-history";
-import { useSIPCalculations } from "@/hooks/use-sip-calculations";
-import { SIPCalculation } from "@/lib/types";
+import { XIRRCalculator } from "@/components/xirr-calculator";
+import { XIRRHistory } from "@/components/xirr-history";
+import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
+import { XIRRCalculation } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
-export default function SIPPage() {
-  const { calculations, addCalculation, updateCalculation, deleteCalculation } = useSIPCalculations();
-  const [editingCalculation, setEditingCalculation] = useState<SIPCalculation | null>(null);
+export default function XIRRPage() {
+  const { calculations, addCalculation, updateCalculation, deleteCalculation } = useXIRRCalculations();
+  const [editingCalculation, setEditingCalculation] = useState<XIRRCalculation | null>(null);
 
-  const handleSaveCalculation = (calculation: SIPCalculation) => {
+  const handleSaveCalculation = (calculation: XIRRCalculation) => {
     if (editingCalculation) {
       updateCalculation(calculation.id, calculation);
     } else {
@@ -20,7 +20,7 @@ export default function SIPPage() {
     }
   };
 
-  const handleEditCalculation = (calculation: SIPCalculation) => {
+  const handleEditCalculation = (calculation: XIRRCalculation) => {
     setEditingCalculation(calculation);
   };
 
@@ -34,9 +34,9 @@ export default function SIPPage() {
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold">SIP Calculator</h1>
+              <h1 className="text-4xl font-bold">XIRR Calculator</h1>
               <p className="text-muted-foreground">
-                Calculate your Systematic Investment Plan totals and track your investment history.
+                Calculate XIRR (Extended Internal Rate of Return) or final investment value.
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -49,15 +49,15 @@ export default function SIPPage() {
                <Link href="/fd">
                  <Button variant="outline">FD Calculator</Button>
                </Link>
-                <Link href="/loan">
-                  <Button variant="outline">Loan Calculator</Button>
-                </Link>
-                <Link href="/xirr">
-                  <Button variant="outline">XIRR Calculator</Button>
-                </Link>
-                <Link href="/bills">
-                  <Button variant="outline">Bill Manager</Button>
-                </Link>
+               <Link href="/loan">
+                 <Button variant="outline">Loan Calculator</Button>
+               </Link>
+               <Link href="/sip">
+                 <Button variant="outline">SIP Calculator</Button>
+               </Link>
+               <Link href="/bills">
+                 <Button variant="outline">Bill Manager</Button>
+               </Link>
                <Link href="/export">
                  <Button variant="outline">Export/Import</Button>
                </Link>
@@ -66,12 +66,12 @@ export default function SIPPage() {
         </header>
 
         <div className="space-y-8">
-          <SIPCalculator
+          <XIRRCalculator
             onSaveCalculation={handleSaveCalculation}
             editingCalculation={editingCalculation}
             onCancelEdit={handleCancelEdit}
           />
-          <SIPHistory
+          <XIRRHistory
             calculations={calculations}
             onDeleteCalculation={deleteCalculation}
             onEditCalculation={handleEditCalculation}

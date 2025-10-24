@@ -23,6 +23,7 @@ import { useRecharges } from "@/hooks/use-recharges";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
 import { useFDCalculations } from "@/hooks/use-fd-calculations";
 import { useLoanCalculations } from "@/hooks/use-loan-calculations";
+import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
 import { useBills } from "@/hooks/use-bills";
 
 export default function Home() {
@@ -30,6 +31,7 @@ export default function Home() {
   const { calculations: sipCalculations, toggleCalculation } = useSIPCalculations();
   const { calculations: fdCalculations } = useFDCalculations();
   const { calculations: loanCalculations } = useLoanCalculations();
+  const { calculations: xirrCalculations } = useXIRRCalculations();
   const { bills } = useBills();
 
   // Calculate stats
@@ -117,6 +119,14 @@ export default function Home() {
       bgColor: "bg-red-50",
     },
     {
+      title: "XIRR Calculations",
+      value: xirrCalculations.length,
+      description: "XIRR and return calculations",
+      icon: TrendingUp,
+      color: "text-cyan-600",
+      bgColor: "bg-cyan-50",
+    },
+    {
       title: "Bills",
       value: bills.length,
       description: "Recurring expenses",
@@ -172,6 +182,15 @@ export default function Home() {
       bgColor: "bg-red-50",
     },
     {
+      title: "XIRR Calculator",
+      description: "Calculate XIRR and investment returns",
+      href: "/xirr",
+      icon: TrendingUp,
+      stats: `${xirrCalculations.length} saved`,
+      color: "text-cyan-600",
+      bgColor: "bg-cyan-50",
+    },
+    {
       title: "Bill Manager",
       description: "Track recurring bills and expenses",
       href: "/bills",
@@ -205,7 +224,7 @@ export default function Home() {
             </div>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
               <Activity className="h-4 w-4 mr-1" />
-              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + bills.length} Active Items
+              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + xirrCalculations.length + bills.length} Active Items
             </span>
           </div>
         </header>

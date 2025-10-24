@@ -61,12 +61,15 @@ export default function BillsPage() {
               <Link href="/fd">
                 <Button variant="outline">FD Calculator</Button>
               </Link>
-              <Link href="/loan">
-                <Button variant="outline">Loan Calculator</Button>
-              </Link>
-              <Link href="/export">
-                <Button variant="outline">Export/Import</Button>
-              </Link>
+               <Link href="/loan">
+                 <Button variant="outline">Loan Calculator</Button>
+               </Link>
+               <Link href="/xirr">
+                 <Button variant="outline">XIRR Calculator</Button>
+               </Link>
+               <Link href="/export">
+                 <Button variant="outline">Export/Import</Button>
+               </Link>
             </div>
           </div>
         </header>
