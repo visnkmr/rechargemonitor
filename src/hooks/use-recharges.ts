@@ -7,6 +7,7 @@ import { Recharge } from "@/lib/types";
 type StoredRecharge = Omit<Recharge, 'rechargeDate' | 'endDate'> & {
   rechargeDate: string;
   endDate?: string;
+  enabled?: boolean; // For backward compatibility
 };
 
 const STORAGE_KEY = "recharges";
@@ -23,6 +24,7 @@ function loadRechargesFromStorage(): Recharge[] {
         ...r,
         rechargeDate: new Date(r.rechargeDate),
         endDate: r.endDate ? new Date(r.endDate) : undefined,
+        enabled: r.enabled !== undefined ? r.enabled : true,
       }));
     } catch (error) {
       console.error("Failed to parse recharges from localStorage", error);
@@ -84,5 +86,11 @@ export function useRecharges() {
     );
   };
 
-  return { recharges, addRecharge, updateRecharge };
+  const toggleRecharge = (id: string) => {
+    setRecharges((current) => current.map(recharge =>
+      recharge.id === id ? { ...recharge, enabled: !recharge.enabled } : recharge
+    ));
+  };
+
+  return { recharges, addRecharge, updateRecharge, toggleRecharge };
 }

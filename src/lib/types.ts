@@ -9,6 +9,7 @@ export interface Recharge {
   remainingDays: number;
   endDate?: Date;
   inputMode: 'startAndDuration' | 'endAndDuration' | 'startAndEnd';
+  enabled: boolean; // Whether to include in monthly spend calculations
 }
 
 export interface RechargeFormData {
@@ -68,4 +69,23 @@ export interface XIRRFormData {
   finalAmount?: number;
   xirr?: number;
   periodYears: number;
+}
+
+export interface Expense {
+  id: string;
+  name: string;
+  amount: number;
+  date: Date;
+  dissolutionPeriodYears: number; // Period over which the expense is amortized
+  perDayCost: number;
+  perMonthCost: number;
+  perYearCost: number;
+  createdAt: Date;
+}
+
+export interface ExpenseFormData {
+  name: string;
+  amount: number;
+  date: Date;
+  dissolutionPeriodYears: number;
 }

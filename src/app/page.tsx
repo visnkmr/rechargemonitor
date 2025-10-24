@@ -25,23 +25,25 @@ import { useFDCalculations } from "@/hooks/use-fd-calculations";
 import { useLoanCalculations } from "@/hooks/use-loan-calculations";
 import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
 import { useBills } from "@/hooks/use-bills";
+import { useExpenses } from "@/hooks/use-expenses";
 
 export default function Home() {
-  const { recharges } = useRecharges();
+  const { recharges, toggleRecharge } = useRecharges();
   const { calculations: sipCalculations, toggleCalculation } = useSIPCalculations();
   const { calculations: fdCalculations } = useFDCalculations();
   const { calculations: loanCalculations } = useLoanCalculations();
   const { calculations: xirrCalculations } = useXIRRCalculations();
-  const { bills } = useBills();
+  const { bills, toggleBill } = useBills();
+  const { expenses } = useExpenses();
 
   // Calculate stats
-  const activeRecharges = recharges.filter(r => r.remainingDays > 0);
+  const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
   const totalRechargeValue = recharges.reduce((sum, r) => sum + r.lastRechargeAmount, 0);
   const totalSIPInvested = sipCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
   const totalFDInvested = fdCalculations.reduce((sum, calc) => sum + calc.principal, 0);
 
   // Calculate monthly spend
-  const monthlyRechargeSpend = activeRecharges.reduce((sum, r) => sum + (r.perDayCost * 30), 0);
+  const monthlyRechargeSpend = activeRecharges.filter(r => r.enabled).reduce((sum, r) => sum + (r.perDayCost * 30), 0);
 
   const monthlySIPSpend = sipCalculations
     .filter(calc => calc.enabled) // Only include enabled SIPs
@@ -74,8 +76,9 @@ export default function Home() {
     }, 0);
 
   const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
-  const monthlyBillsSpend = bills.reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
-  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend;
+  const monthlyBillsSpend = bills.filter(bill => bill.enabled).reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
+  const monthlyExpensesSpend = expenses.reduce((sum, expense) => sum + expense.perMonthCost, 0);
+  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend + monthlyExpensesSpend;
 
   const quickStats = [
     {
@@ -126,14 +129,22 @@ export default function Home() {
       color: "text-cyan-600",
       bgColor: "bg-cyan-50",
     },
-    {
-      title: "Bills",
-      value: bills.length,
-      description: "Recurring expenses",
-      icon: Receipt,
-      color: "text-teal-600",
-      bgColor: "bg-teal-50",
-    },
+     {
+       title: "Bills",
+       value: bills.length,
+       description: "Recurring expenses",
+       icon: Receipt,
+       color: "text-teal-600",
+       bgColor: "bg-teal-50",
+     },
+     {
+       title: "Expenses",
+       value: expenses.length,
+       description: "Amortized one-time costs",
+       icon: Calculator,
+       color: "text-orange-600",
+       bgColor: "bg-orange-50",
+     },
     {
       title: "Monthly Spend",
       value: `₹${totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -199,15 +210,24 @@ export default function Home() {
       color: "text-teal-600",
       bgColor: "bg-teal-50",
     },
-    {
-      title: "Export/Import",
-      description: "Backup and restore your data",
-      href: "/export",
-      icon: FileText,
-      stats: "Tools",
-      color: "text-gray-600",
-      bgColor: "bg-gray-50",
-    },
+     {
+       title: "Expense Amortization",
+       description: "Track one-time expenses and their amortized costs",
+       href: "/expenses",
+       icon: Calculator,
+       stats: `${expenses.length} expenses`,
+       color: "text-orange-600",
+       bgColor: "bg-orange-50",
+     },
+     {
+       title: "Export/Import",
+       description: "Backup and restore your data",
+       href: "/export",
+       icon: FileText,
+       stats: "Tools",
+       color: "text-gray-600",
+       bgColor: "bg-gray-50",
+     },
   ];
 
   return (
@@ -224,13 +244,13 @@ export default function Home() {
             </div>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
               <Activity className="h-4 w-4 mr-1" />
-              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + xirrCalculations.length + bills.length} Active Items
+              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + xirrCalculations.length + bills.length + expenses.length} Active Items
             </span>
           </div>
         </header>
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 mb-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 mb-8">
           {quickStats.map((stat, index) => (
             <Card key={index}>
               <CardContent className="p-6">
@@ -325,7 +345,7 @@ export default function Home() {
         </div>
 
         {/* Recent Activity */}
-        {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0) && (
+        {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0) && (
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -342,8 +362,23 @@ export default function Home() {
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Smartphone className="h-5 w-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium">{recharge.nickname}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{recharge.nickname}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleRecharge(recharge.id)}
+                            className="h-6 w-6 p-0 hover:bg-blue-100"
+                            title={recharge.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                          >
+                            {recharge.enabled ? (
+                              <Eye className="h-3 w-3 text-blue-600" />
+                            ) : (
+                              <EyeOff className="h-3 w-3 text-gray-400" />
+                            )}
+                          </Button>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           ₹{recharge.lastRechargeAmount} - {recharge.remainingDays} days remaining
                         </p>
@@ -419,6 +454,38 @@ export default function Home() {
                       </div>
                     </div>
                     <Link href="/loan">
+                      <Button variant="outline" size="sm">View</Button>
+                    </Link>
+                  </div>
+                ))}
+
+                {bills.map((bill) => (
+                  <div key={bill.id} className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Receipt className="h-5 w-5 text-teal-600" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{bill.name}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleBill(bill.id)}
+                            className="h-6 w-6 p-0 hover:bg-teal-100"
+                            title={bill.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                          >
+                            {bill.enabled ? (
+                              <Eye className="h-3 w-3 text-teal-600" />
+                            ) : (
+                              <EyeOff className="h-3 w-3 text-gray-400" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          ₹{bill.amount} every {bill.frequencyDays} days
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/bills">
                       <Button variant="outline" size="sm">View</Button>
                     </Link>
                   </div>

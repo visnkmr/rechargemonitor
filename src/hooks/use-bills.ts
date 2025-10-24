@@ -8,12 +8,14 @@ export interface Bill {
   amount: number;
   frequencyDays: number; // Frequency in days
   createdAt: Date;
+  enabled: boolean; // Whether to include in monthly spend calculations
 }
 
 const STORAGE_KEY = "bills";
 
 type StoredBill = Omit<Bill, 'createdAt'> & {
   createdAt: string;
+  enabled?: boolean; // For backward compatibility
 };
 
 function loadBillsFromStorage(): Bill[] {
@@ -26,6 +28,7 @@ function loadBillsFromStorage(): Bill[] {
       return parsed.map((bill) => ({
         ...bill,
         createdAt: new Date(bill.createdAt),
+        enabled: bill.enabled !== undefined ? bill.enabled : true,
       }));
     } catch (error) {
       console.error("Failed to parse bills from localStorage", error);
@@ -57,5 +60,11 @@ export function useBills() {
     setBills((current) => current.filter(bill => bill.id !== id));
   };
 
-  return { bills, addBill, updateBill, deleteBill };
+  const toggleBill = (id: string) => {
+    setBills((current) => current.map(bill =>
+      bill.id === id ? { ...bill, enabled: !bill.enabled } : bill
+    ));
+  };
+
+  return { bills, addBill, updateBill, deleteBill, toggleBill };
 }
