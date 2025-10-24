@@ -192,6 +192,7 @@ export function RechargeForm({
       perDayCost,
       remainingDays: calculateRemainingDays(), // Calculate fresh remaining days
       endDate,
+      enabled: recharge?.enabled !== undefined ? recharge.enabled : true,
     };
     onFormSubmit(rechargeData);
     if (!recharge) {

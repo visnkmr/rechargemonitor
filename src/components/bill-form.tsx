@@ -60,6 +60,7 @@ export function BillForm({ onSaveBill, editingBill, onCancelEdit }: BillFormProp
       amount,
       frequencyDays,
       createdAt: editingBill?.createdAt || new Date(),
+      enabled: editingBill?.enabled !== undefined ? editingBill.enabled : true,
     };
 
     onSaveBill(bill);
