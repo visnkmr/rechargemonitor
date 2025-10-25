@@ -7,20 +7,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
-import { Recharge, SIPCalculation } from "@/lib/types";
+import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
 import { Bill } from "@/hooks/use-bills";
 
 interface ExportData {
-  recharges: Recharge[];
-  sipCalculations: SIPCalculation[];
-  fdCalculations?: FDCalculation[]; // Optional for backward compatibility
-  loanCalculations?: LoanCalculation[]; // Optional for backward compatibility
-  bills?: Bill[]; // Optional for backward compatibility
+  recharges?: Recharge[];
+  sipCalculations?: SIPCalculation[];
+  fdCalculations?: FDCalculation[];
+  loanCalculations?: LoanCalculation[];
+  bills?: Bill[];
+  expenses?: Expense[];
+  xirrCalculations?: XIRRCalculation[];
+  mfWatchlist?: WatchlistItem[];
+  mfPurchases?: MFPurchase[];
   exportDate: string;
   version: string;
+}
+
+interface ExportSelections {
+  recharges: boolean;
+  sipCalculations: boolean;
+  fdCalculations: boolean;
+  loanCalculations: boolean;
+  bills: boolean;
+  expenses: boolean;
+  xirrCalculations: boolean;
+  mfWatchlist: boolean;
+  mfPurchases: boolean;
 }
 
 export default function ExportPage() {
@@ -28,6 +45,17 @@ export default function ExportPage() {
   const [importMessage, setImportMessage] = useState('');
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const [jsonImportText, setJsonImportText] = useState('');
+  const [exportSelections, setExportSelections] = useState<ExportSelections>({
+    recharges: true,
+    sipCalculations: true,
+    fdCalculations: true,
+    loanCalculations: true,
+    bills: true,
+    expenses: true,
+    xirrCalculations: true,
+    mfWatchlist: true,
+    mfPurchases: true,
+  });
 
   // Load saved import mode preference
   useEffect(() => {
@@ -54,22 +82,39 @@ export default function ExportPage() {
 
   const exportData = () => {
     try {
-      // Get data from localStorage
-      const recharges = JSON.parse(localStorage.getItem('recharges') || '[]');
-      const sipCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
-      const fdCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
-      const loanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
-      const bills = JSON.parse(localStorage.getItem('bills') || '[]');
-
       const exportData: ExportData = {
-        recharges,
-        sipCalculations,
-        fdCalculations,
-        loanCalculations,
-        bills,
         exportDate: new Date().toISOString(),
-        version: '2.0'
+        version: '3.0'
       };
+
+      // Get selected data from localStorage
+      if (exportSelections.recharges) {
+        exportData.recharges = JSON.parse(localStorage.getItem('recharges') || '[]');
+      }
+      if (exportSelections.sipCalculations) {
+        exportData.sipCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
+      }
+      if (exportSelections.fdCalculations) {
+        exportData.fdCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
+      }
+      if (exportSelections.loanCalculations) {
+        exportData.loanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
+      }
+      if (exportSelections.bills) {
+        exportData.bills = JSON.parse(localStorage.getItem('bills') || '[]');
+      }
+      if (exportSelections.expenses) {
+        exportData.expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+      }
+      if (exportSelections.xirrCalculations) {
+        exportData.xirrCalculations = JSON.parse(localStorage.getItem('xirr-calculations') || '[]');
+      }
+      if (exportSelections.mfWatchlist) {
+        exportData.mfWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
+      }
+      if (exportSelections.mfPurchases) {
+        exportData.mfPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
+      }
 
       // Create and download JSON file
       const dataStr = JSON.stringify(exportData, null, 2);
@@ -107,7 +152,7 @@ export default function ExportPage() {
 
         // Provide defaults for missing data types (for backward compatibility)
         const safeImportData = {
-          recharges: importData.recharges,
+          recharges: importData.recharges || [],
           sipCalculations: (importData.sipCalculations || []).map(calc => ({
             ...calc,
             enabled: calc.enabled ?? true // Add enabled field for backward compatibility
@@ -115,44 +160,84 @@ export default function ExportPage() {
           fdCalculations: importData.fdCalculations || [],
           loanCalculations: importData.loanCalculations || [],
           bills: importData.bills || [],
+          expenses: importData.expenses || [],
+          xirrCalculations: importData.xirrCalculations || [],
+          mfWatchlist: importData.mfWatchlist || [],
+          mfPurchases: importData.mfPurchases || [],
           exportDate: importData.exportDate,
           version: importData.version || '1.0'
         };
 
         if (importMode === 'replace') {
           // Replace mode - completely replace existing data
-          if (safeImportData.recharges.length > 0) {
+          const counts = {
+            recharges: safeImportData.recharges.length,
+            sipCalculations: safeImportData.sipCalculations.length,
+            fdCalculations: safeImportData.fdCalculations.length,
+            loanCalculations: safeImportData.loanCalculations.length,
+            bills: safeImportData.bills.length,
+            expenses: safeImportData.expenses.length,
+            xirrCalculations: safeImportData.xirrCalculations.length,
+            mfWatchlist: safeImportData.mfWatchlist.length,
+            mfPurchases: safeImportData.mfPurchases.length,
+          };
+
+          if (counts.recharges > 0) {
             localStorage.setItem('recharges', JSON.stringify(safeImportData.recharges));
           } else {
             localStorage.removeItem('recharges');
           }
 
-          if (safeImportData.sipCalculations.length > 0) {
+          if (counts.sipCalculations > 0) {
             localStorage.setItem('sip-calculations', JSON.stringify(safeImportData.sipCalculations));
           } else {
             localStorage.removeItem('sip-calculations');
           }
 
-          if (safeImportData.fdCalculations.length > 0) {
+          if (counts.fdCalculations > 0) {
             localStorage.setItem('fd-calculations', JSON.stringify(safeImportData.fdCalculations));
           } else {
             localStorage.removeItem('fd-calculations');
           }
 
-          if (safeImportData.loanCalculations.length > 0) {
+          if (counts.loanCalculations > 0) {
             localStorage.setItem('loan-calculations', JSON.stringify(safeImportData.loanCalculations));
           } else {
             localStorage.removeItem('loan-calculations');
           }
 
-          if (safeImportData.bills.length > 0) {
+          if (counts.bills > 0) {
             localStorage.setItem('bills', JSON.stringify(safeImportData.bills));
           } else {
             localStorage.removeItem('bills');
           }
 
+          if (counts.expenses > 0) {
+            localStorage.setItem('expenses', JSON.stringify(safeImportData.expenses));
+          } else {
+            localStorage.removeItem('expenses');
+          }
+
+          if (counts.xirrCalculations > 0) {
+            localStorage.setItem('xirr-calculations', JSON.stringify(safeImportData.xirrCalculations));
+          } else {
+            localStorage.removeItem('xirr-calculations');
+          }
+
+          if (counts.mfWatchlist > 0) {
+            localStorage.setItem('mf-watchlist', JSON.stringify(safeImportData.mfWatchlist));
+          } else {
+            localStorage.removeItem('mf-watchlist');
+          }
+
+          if (counts.mfPurchases > 0) {
+            localStorage.setItem('mf-purchases', JSON.stringify(safeImportData.mfPurchases));
+          } else {
+            localStorage.removeItem('mf-purchases');
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully replaced data with ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, and ${counts.mfPurchases} MF purchases. Please refresh the page to see the changes.`);
         } else {
           // Append mode - merge with existing data
           const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -160,6 +245,10 @@ export default function ExportPage() {
           const existingFDCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
           const existingLoanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
           const existingBills = JSON.parse(localStorage.getItem('bills') || '[]');
+          const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+          const existingXIRRCalculations = JSON.parse(localStorage.getItem('xirr-calculations') || '[]');
+          const existingMFWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
+          const existingMFPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
 
           // Generate new IDs for imported data to avoid conflicts
           const mergedRecharges = [
@@ -202,6 +291,50 @@ export default function ExportPage() {
             }))
           ];
 
+          const mergedExpenses = [
+            ...existingExpenses,
+            ...safeImportData.expenses.map(expense => ({
+              ...expense,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const mergedXIRRCalculations = [
+            ...existingXIRRCalculations,
+            ...safeImportData.xirrCalculations.map(calc => ({
+              ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const mergedMFWatchlist = [
+            ...existingMFWatchlist,
+            ...safeImportData.mfWatchlist.map(item => ({
+              ...item,
+              // Watchlist items don't have IDs, just schemeCode and addedAt
+            }))
+          ];
+
+          const mergedMFPurchases = [
+            ...existingMFPurchases,
+            ...safeImportData.mfPurchases.map(purchase => ({
+              ...purchase,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
+          const counts = {
+            recharges: safeImportData.recharges.length,
+            sipCalculations: safeImportData.sipCalculations.length,
+            fdCalculations: safeImportData.fdCalculations.length,
+            loanCalculations: safeImportData.loanCalculations.length,
+            bills: safeImportData.bills.length,
+            expenses: safeImportData.expenses.length,
+            xirrCalculations: safeImportData.xirrCalculations.length,
+            mfWatchlist: safeImportData.mfWatchlist.length,
+            mfPurchases: safeImportData.mfPurchases.length,
+          };
+
           if (mergedRecharges.length > 0) {
             localStorage.setItem('recharges', JSON.stringify(mergedRecharges));
           }
@@ -222,8 +355,24 @@ export default function ExportPage() {
             localStorage.setItem('bills', JSON.stringify(mergedBills));
           }
 
+          if (mergedExpenses.length > 0) {
+            localStorage.setItem('expenses', JSON.stringify(mergedExpenses));
+          }
+
+          if (mergedXIRRCalculations.length > 0) {
+            localStorage.setItem('xirr-calculations', JSON.stringify(mergedXIRRCalculations));
+          }
+
+          if (mergedMFWatchlist.length > 0) {
+            localStorage.setItem('mf-watchlist', JSON.stringify(mergedMFWatchlist));
+          }
+
+          if (mergedMFPurchases.length > 0) {
+            localStorage.setItem('mf-purchases', JSON.stringify(mergedMFPurchases));
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully appended ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills to existing data. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully appended ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, and ${counts.mfPurchases} MF purchases to existing data. Please refresh the page to see the changes.`);
         }
 
         // Clear the file input
@@ -256,7 +405,7 @@ export default function ExportPage() {
 
       // Provide defaults for missing data types (for backward compatibility)
       const safeImportData = {
-        recharges: importData.recharges,
+        recharges: importData.recharges || [],
         sipCalculations: (importData.sipCalculations || []).map(calc => ({
           ...calc,
           enabled: calc.enabled ?? true // Add enabled field for backward compatibility
@@ -264,6 +413,10 @@ export default function ExportPage() {
         fdCalculations: importData.fdCalculations || [],
         loanCalculations: importData.loanCalculations || [],
         bills: importData.bills || [],
+        expenses: importData.expenses || [],
+        xirrCalculations: importData.xirrCalculations || [],
+        mfWatchlist: importData.mfWatchlist || [],
+        mfPurchases: importData.mfPurchases || [],
         exportDate: importData.exportDate,
         version: importData.version || '1.0'
       };
@@ -391,6 +544,10 @@ export default function ExportPage() {
       localStorage.removeItem('fd-calculations');
       localStorage.removeItem('loan-calculations');
       localStorage.removeItem('bills');
+      localStorage.removeItem('expenses');
+      localStorage.removeItem('xirr-calculations');
+      localStorage.removeItem('mf-watchlist');
+      localStorage.removeItem('mf-purchases');
       setImportStatus('success');
       setImportMessage('All data cleared successfully. Please refresh the page.');
     }
@@ -409,9 +566,9 @@ export default function ExportPage() {
              </Link>
           </div>
           <h1 className="text-4xl font-bold">Export / Import Data</h1>
-           <p className="text-muted-foreground">
-             Transfer your financial data (recharges, SIP/FD/loan calculations, and bills) between devices.
-           </p>
+            <p className="text-muted-foreground">
+              Transfer your financial data (recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data) between devices.
+            </p>
         </header>
 
         {importStatus !== 'idle' && (
@@ -438,15 +595,94 @@ export default function ExportPage() {
                 Download all your data as a JSON file to backup or transfer to another device.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={exportData} className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Export All Data
-              </Button>
-               <p className="text-xs text-muted-foreground mt-2">
-                 This will include all recharges, SIP/FD/loan calculations, and bills.
-               </p>
-            </CardContent>
+             <CardContent>
+               <div className="space-y-4">
+                 <div>
+                   <Label className="text-sm font-medium">Select data to export:</Label>
+                   <div className="grid grid-cols-2 gap-2 mt-2">
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-recharges"
+                         checked={exportSelections.recharges}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, recharges: checked }))}
+                       />
+                       <Label htmlFor="export-recharges" className="text-sm">Recharges</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-sip"
+                         checked={exportSelections.sipCalculations}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, sipCalculations: checked }))}
+                       />
+                       <Label htmlFor="export-sip" className="text-sm">SIP Calculations</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-fd"
+                         checked={exportSelections.fdCalculations}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, fdCalculations: checked }))}
+                       />
+                       <Label htmlFor="export-fd" className="text-sm">FD Calculations</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-loan"
+                         checked={exportSelections.loanCalculations}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, loanCalculations: checked }))}
+                       />
+                       <Label htmlFor="export-loan" className="text-sm">Loan Calculations</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-bills"
+                         checked={exportSelections.bills}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, bills: checked }))}
+                       />
+                       <Label htmlFor="export-bills" className="text-sm">Bills</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-expenses"
+                         checked={exportSelections.expenses}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, expenses: checked }))}
+                       />
+                       <Label htmlFor="export-expenses" className="text-sm">Expenses</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-xirr"
+                         checked={exportSelections.xirrCalculations}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, xirrCalculations: checked }))}
+                       />
+                       <Label htmlFor="export-xirr" className="text-sm">XIRR Calculations</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-mf-watchlist"
+                         checked={exportSelections.mfWatchlist}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfWatchlist: checked }))}
+                       />
+                       <Label htmlFor="export-mf-watchlist" className="text-sm">MF Watchlist</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Checkbox
+                         id="export-mf-purchases"
+                         checked={exportSelections.mfPurchases}
+                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfPurchases: checked }))}
+                       />
+                       <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
+                     </div>
+                   </div>
+                 </div>
+                 <Button onClick={exportData} className="w-full">
+                   <Download className="h-4 w-4 mr-2" />
+                   Export Selected Data
+                 </Button>
+                 <p className="text-xs text-muted-foreground">
+                   Only selected data types will be included in the export.
+                 </p>
+               </div>
+             </CardContent>
           </Card>
 
           <Card>
@@ -536,9 +772,9 @@ export default function ExportPage() {
             >
               Clear All Data
             </Button>
-             <p className="text-xs text-muted-foreground mt-2">
-               This will permanently delete all recharges, SIP/FD/loan calculations, and bills.
-             </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                This will permanently delete all recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data.
+              </p>
           </CardContent>
         </Card>
       </div>
