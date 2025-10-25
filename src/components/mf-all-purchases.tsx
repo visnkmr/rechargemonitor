@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MFPurchase } from "@/lib/types";
+import { MFPurchase, MFAPIDataPoint } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 interface FundData {
   name: string;
   currentNav: number;
+  navDate: Date;
 }
 
 interface MFAllPurchasesProps {
@@ -38,11 +39,19 @@ export function MFAllPurchases({ purchases }: MFAllPurchasesProps) {
             const data = await response.json();
             if (data.status !== 'SUCCESS' || !data.data || data.data.length === 0) return null;
 
-            const latestData = data.data[data.data.length - 1];
+            // Sort data by date (oldest first) to ensure we get the latest
+            const sortedData = data.data.sort((a: MFAPIDataPoint, b: MFAPIDataPoint) => {
+              const dateA = new Date(a.date.split('-').reverse().join('-')); // Convert DD-MM-YYYY to YYYY-MM-DD
+              const dateB = new Date(b.date.split('-').reverse().join('-'));
+              return dateA.getTime() - dateB.getTime();
+            });
+
+            const latestData = sortedData[sortedData.length - 1];
             return {
               schemeCode,
               name: data.meta.scheme_name,
-              currentNav: parseFloat(latestData.nav)
+              currentNav: parseFloat(latestData.nav),
+              navDate: new Date(latestData.date.split('-').reverse().join('-'))
             };
           } catch (error) {
             console.error(`Error fetching data for scheme ${schemeCode}:`, error);
@@ -55,7 +64,8 @@ export function MFAllPurchases({ purchases }: MFAllPurchasesProps) {
           if (result) {
             newFundData.set(result.schemeCode, {
               name: result.name,
-              currentNav: result.currentNav
+              currentNav: result.currentNav,
+              navDate: result.navDate
             });
           }
         });
@@ -133,6 +143,7 @@ export function MFAllPurchases({ purchases }: MFAllPurchasesProps) {
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Units</TableHead>
+                  <TableHead>NAV at Purchase</TableHead>
                   <TableHead>Current NAV</TableHead>
                   <TableHead>Current Value</TableHead>
                   <TableHead>Gain/Loss</TableHead>
@@ -156,7 +167,13 @@ export function MFAllPurchases({ purchases }: MFAllPurchasesProps) {
                         <TableCell>{purchase.purchaseDate.toLocaleDateString()}</TableCell>
                         <TableCell>₹{purchase.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell>{purchase.units.toFixed(4)}</TableCell>
-                        <TableCell>₹{currentNav.toFixed(4)}</TableCell>
+                        <TableCell>₹{purchase.navAtPurchase.toFixed(4)}</TableCell>
+                        <TableCell>
+                          ₹{currentNav.toFixed(4)}
+                          {fund && fund.navDate && (new Date().getTime() - fund.navDate.getTime()) > 2 * 24 * 60 * 60 * 1000 && (
+                            <span className="text-xs text-muted-foreground ml-1">*</span>
+                          )}
+                        </TableCell>
                         <TableCell>₹{currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell>
                           <Badge variant={gainLoss >= 0 ? "default" : "destructive"}>
@@ -169,6 +186,11 @@ export function MFAllPurchases({ purchases }: MFAllPurchasesProps) {
                   })}
               </TableBody>
             </Table>
+            {Array.from(fundData.values()).some(fund => (new Date().getTime() - fund.navDate.getTime()) > 2 * 24 * 60 * 60 * 1000) && (
+              <p className="text-xs text-muted-foreground mt-2">
+                * NAV data may be delayed. Latest available data is shown.
+              </p>
+            )}
           </div>
         )}
       </CardContent>
