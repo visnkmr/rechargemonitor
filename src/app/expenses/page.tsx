@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ArrowLeft, Plus, Trash2, Calculator } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useExpenses } from "@/hooks/use-expenses";
 import { Expense, ExpenseFormData } from "@/lib/types";
 import { format } from "date-fns";
@@ -21,12 +21,29 @@ export default function ExpensesPage() {
     dissolutionPeriodYears: 5,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Live calculation of amortized costs
+  const calculatedCosts = useMemo(() => {
+    if (formData.amount <= 0 || formData.dissolutionPeriodYears <= 0) {
+      return {
+        perDayCost: 0,
+        perMonthCost: 0,
+        perYearCost: 0,
+      };
+    }
 
     const perDayCost = formData.amount / (formData.dissolutionPeriodYears * 365.25);
     const perMonthCost = formData.amount / (formData.dissolutionPeriodYears * 12);
     const perYearCost = formData.amount / formData.dissolutionPeriodYears;
+
+    return {
+      perDayCost,
+      perMonthCost,
+      perYearCost,
+    };
+  }, [formData.amount, formData.dissolutionPeriodYears]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
     const newExpense: Expense = {
       id: Date.now().toString(),
@@ -34,9 +51,9 @@ export default function ExpensesPage() {
       amount: formData.amount,
       date: formData.date,
       dissolutionPeriodYears: formData.dissolutionPeriodYears,
-      perDayCost,
-      perMonthCost,
-      perYearCost,
+      perDayCost: calculatedCosts.perDayCost,
+      perMonthCost: calculatedCosts.perMonthCost,
+      perYearCost: calculatedCosts.perYearCost,
       createdAt: new Date(),
     };
 
@@ -122,23 +139,50 @@ export default function ExpensesPage() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="dissolutionPeriod">Dissolution Period (Years)</Label>
-                  <Input
-                    id="dissolutionPeriod"
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    value={formData.dissolutionPeriodYears}
-                    onChange={(e) => setFormData({ ...formData, dissolutionPeriodYears: parseFloat(e.target.value) || 5 })}
-                    placeholder="5"
-                  />
-                </div>
+                 <div>
+                   <Label htmlFor="dissolutionPeriod">Dissolution Period (Years)</Label>
+                   <Input
+                     id="dissolutionPeriod"
+                     type="number"
+                     min="0.1"
+                     step="0.1"
+                     value={formData.dissolutionPeriodYears}
+                     onChange={(e) => setFormData({ ...formData, dissolutionPeriodYears: parseFloat(e.target.value) || 5 })}
+                     placeholder="5"
+                   />
+                 </div>
 
-                <Button type="submit" className="w-full">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Calculate & Save
-                </Button>
+                 {/* Live Calculation Display */}
+                 {formData.amount > 0 && formData.dissolutionPeriodYears > 0 && (
+                   <div className="p-4 bg-blue-50 rounded-lg border">
+                     <h4 className="font-medium text-blue-900 mb-3">Amortized Costs</h4>
+                     <div className="grid grid-cols-3 gap-4 text-sm">
+                       <div className="text-center">
+                         <p className="text-blue-700 font-medium">Per Day</p>
+                         <p className="text-lg font-bold text-blue-900">
+                           ₹{calculatedCosts.perDayCost.toFixed(2)}
+                         </p>
+                       </div>
+                       <div className="text-center">
+                         <p className="text-blue-700 font-medium">Per Month</p>
+                         <p className="text-lg font-bold text-blue-900">
+                           ₹{calculatedCosts.perMonthCost.toFixed(2)}
+                         </p>
+                       </div>
+                       <div className="text-center">
+                         <p className="text-blue-700 font-medium">Per Year</p>
+                         <p className="text-lg font-bold text-blue-900">
+                           ₹{calculatedCosts.perYearCost.toFixed(2)}
+                         </p>
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 <Button type="submit" className="w-full" disabled={!formData.name.trim() || formData.amount <= 0}>
+                   <Save className="h-4 w-4 mr-2" />
+                   Save Expense
+                 </Button>
               </form>
             </CardContent>
           </Card>
