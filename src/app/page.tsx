@@ -37,7 +37,7 @@ export default function Home() {
   const { calculations: loanCalculations } = useLoanCalculations();
   const { calculations: xirrCalculations } = useXIRRCalculations();
   const { bills, toggleBill } = useBills();
-  const { expenses } = useExpenses();
+  const { expenses, toggleExpense } = useExpenses();
   const { watchlist, watchlistFunds } = useMutualFunds();
   const [showWatchlistCharts, setShowWatchlistCharts] = useState(false);
 
@@ -82,7 +82,7 @@ export default function Home() {
 
   const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
   const monthlyBillsSpend = bills.filter(bill => bill.enabled).reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
-  const monthlyExpensesSpend = expenses.reduce((sum, expense) => sum + expense.perMonthCost, 0);
+  const monthlyExpensesSpend = expenses.filter(expense => expense.enabled).reduce((sum, expense) => sum + expense.perMonthCost, 0);
   const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend + monthlyExpensesSpend;
 
   const quickStats = [
@@ -421,7 +421,7 @@ export default function Home() {
         </div>
 
         {/* Recent Activity */}
-        {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0) && (
+        {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0 || expenses.length > 0) && (
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -562,6 +562,41 @@ export default function Home() {
                       </div>
                     </div>
                     <Link href="/bills">
+                      <Button variant="outline" size="sm">View</Button>
+                    </Link>
+                  </div>
+                ))}
+
+                {expenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Calculator className="h-5 w-5 text-orange-600" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{expense.name}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleExpense(expense.id)}
+                            className="h-6 w-6 p-0 hover:bg-orange-100"
+                            title={expense.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                          >
+                            {expense.enabled ? (
+                              <Eye className="h-3 w-3 text-orange-600" />
+                            ) : (
+                              <EyeOff className="h-3 w-3 text-gray-400" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          ₹{expense.amount.toLocaleString()} amortized over {expense.dissolutionPeriodYears} years
+                        </p>
+                        <p className="text-sm font-semibold text-orange-600">
+                          Monthly Cost: ₹{expense.perMonthCost.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/expenses">
                       <Button variant="outline" size="sm">View</Button>
                     </Link>
                   </div>
