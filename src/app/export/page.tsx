@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff } from "lucide-react";
 import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
@@ -56,6 +56,8 @@ export default function ExportPage() {
     mfWatchlist: true,
     mfPurchases: true,
   });
+  const [showExportText, setShowExportText] = useState(false);
+  const [exportJsonText, setExportJsonText] = useState('');
 
   // Load saved import mode preference
   useEffect(() => {
@@ -126,6 +128,9 @@ export default function ExportPage() {
       linkElement.setAttribute('href', dataUri);
       linkElement.setAttribute('download', exportFileDefaultName);
       linkElement.click();
+
+      // Also set the text for display
+      setExportJsonText(dataStr);
 
       setImportStatus('success');
       setImportMessage('Data exported successfully!');
@@ -674,13 +679,61 @@ export default function ExportPage() {
                      </div>
                    </div>
                  </div>
-                 <Button onClick={exportData} className="w-full">
-                   <Download className="h-4 w-4 mr-2" />
-                   Export Selected Data
-                 </Button>
+                 <div className="flex gap-2">
+                   <Button onClick={exportData} className="flex-1">
+                     <Download className="h-4 w-4 mr-2" />
+                     Export Selected Data
+                   </Button>
+                   <Button
+                     variant="outline"
+                     onClick={() => setShowExportText(!showExportText)}
+                     disabled={!exportJsonText}
+                   >
+                     {showExportText ? (
+                       <>
+                         <EyeOff className="h-4 w-4 mr-2" />
+                         Hide Text
+                       </>
+                     ) : (
+                       <>
+                         <Eye className="h-4 w-4 mr-2" />
+                         Show Text
+                       </>
+                     )}
+                   </Button>
+                 </div>
                  <p className="text-xs text-muted-foreground">
                    Only selected data types will be included in the export.
                  </p>
+
+                 {showExportText && exportJsonText && (
+                   <div className="mt-4">
+                     <div className="flex justify-between items-center mb-2">
+                       <Label className="text-sm font-medium">Exported JSON Data</Label>
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => {
+                           navigator.clipboard.writeText(exportJsonText);
+                           setImportStatus('success');
+                           setImportMessage('JSON data copied to clipboard!');
+                         }}
+                       >
+                         <Copy className="h-3 w-3 mr-2" />
+                         Copy
+                       </Button>
+                     </div>
+                     <textarea
+                       value={exportJsonText}
+                       readOnly
+                       className="w-full p-3 border border-gray-300 rounded-md text-sm font-mono min-h-[300px] resize-vertical"
+                       placeholder="Export data will appear here..."
+                     />
+                     <p className="text-xs text-muted-foreground mt-1">
+                       You can copy this JSON text and save it manually, or use it for importing on another device.
+                     </p>
+                   </div>
+                 )}
                </div>
              </CardContent>
           </Card>
