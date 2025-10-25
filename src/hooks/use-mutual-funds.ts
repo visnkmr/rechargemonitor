@@ -1,113 +1,124 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MutualFundWithHistory, MutualFundPrice } from "@/lib/types";
+import { MutualFundWithHistory, MutualFundPrice, MFAPIResponse } from "@/lib/types";
 
-// Mock data for mutual funds with historical prices
-const mockMutualFunds: MutualFundWithHistory[] = [
-  {
-    id: "1",
-    name: "HDFC Top 100 Fund - Direct Plan",
-    schemeCode: "HDFC001",
-    category: "Large Cap",
-    fundHouse: "HDFC Mutual Fund",
-    currentNav: 1250.45,
-    navDate: new Date(),
-    riskLevel: "Moderate",
-    expenseRatio: 0.5,
-    aum: 25000,
-    historicalPrices: generateHistoricalPrices(1250.45, 365)
-  },
-  {
-    id: "2",
-    name: "ICICI Prudential Bluechip Fund - Direct Plan",
-    schemeCode: "ICICI001",
-    category: "Large Cap",
-    fundHouse: "ICICI Prudential Mutual Fund",
-    currentNav: 890.32,
-    navDate: new Date(),
-    riskLevel: "Moderate",
-    expenseRatio: 0.6,
-    aum: 18000,
-    historicalPrices: generateHistoricalPrices(890.32, 365)
-  },
-  {
-    id: "3",
-    name: "SBI Small Cap Fund - Direct Plan",
-    schemeCode: "SBI001",
-    category: "Small Cap",
-    fundHouse: "SBI Mutual Fund",
-    currentNav: 145.67,
-    navDate: new Date(),
-    riskLevel: "High",
-    expenseRatio: 0.7,
-    aum: 8500,
-    historicalPrices: generateHistoricalPrices(145.67, 365)
-  },
-  {
-    id: "4",
-    name: "Axis Midcap Fund - Direct Plan",
-    schemeCode: "AXIS001",
-    category: "Mid Cap",
-    fundHouse: "Axis Mutual Fund",
-    currentNav: 234.89,
-    navDate: new Date(),
-    riskLevel: "Moderate",
-    expenseRatio: 0.55,
-    aum: 12000,
-    historicalPrices: generateHistoricalPrices(234.89, 365)
-  },
-  {
-    id: "5",
-    name: "Kotak Flexicap Fund - Direct Plan",
-    schemeCode: "KOTAK001",
-    category: "Flexi Cap",
-    fundHouse: "Kotak Mahindra Mutual Fund",
-    currentNav: 567.12,
-    navDate: new Date(),
-    riskLevel: "Moderate",
-    expenseRatio: 0.45,
-    aum: 15000,
-    historicalPrices: generateHistoricalPrices(567.12, 365)
-  }
+// Popular mutual fund scheme codes (Direct Plan variants)
+const POPULAR_SCHEME_CODES = [
+  100122, // HDFC Balanced Fund - Growth Option
+  102529, // ICICI Prudential Bluechip Fund - Direct Plan - Growth
+  103504, // SBI Small Cap Fund - Direct Plan - Growth
+  120503, // Axis Midcap Fund - Direct Plan - Growth
+  112090, // Kotak Flexicap Fund - Direct Plan - Growth
+  118989, // Nippon India Large Cap Fund - Direct Plan - Growth Option
+  120841, // Mirae Asset Large Cap Fund - Direct Plan - Growth
+  120252, // DSP Midcap Fund - Direct Plan - Growth
+  120505, // UTI Flexi Cap Fund - Direct Plan - Growth Option
+  120468, // Franklin India Flexi Cap Fund - Direct Plan - Growth
 ];
 
-// Generate historical prices for the past N days
-function generateHistoricalPrices(currentNav: number, days: number): MutualFundPrice[] {
-  const prices: MutualFundPrice[] = [];
-  const basePrice = currentNav * 0.8; // Start from 80% of current price
-
-  for (let i = days; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-
-    // Generate somewhat realistic price movement with some volatility
-    const volatility = 0.02; // 2% daily volatility
-    const randomChange = (Math.random() - 0.5) * 2 * volatility;
-    const trend = (days - i) / days * 0.3; // Slight upward trend over time
-
-    const price = basePrice * (1 + trend + randomChange * Math.sqrt(i / days));
-    prices.push({
-      date,
-      nav: Math.round(price * 100) / 100
-    });
+// Risk level mapping based on category
+const getRiskLevel = (category: string): 'Low' | 'Moderate' | 'High' => {
+  const categoryLower = category.toLowerCase();
+  if (categoryLower.includes('liquid') || categoryLower.includes('ultra short') || categoryLower.includes('short term')) {
+    return 'Low';
   }
+  if (categoryLower.includes('small cap') || categoryLower.includes('sectoral')) {
+    return 'High';
+  }
+  return 'Moderate';
+};
 
-  return prices;
-}
+// Parse DD-MM-YYYY date string to Date object
+const parseMFAPIDate = (dateStr: string): Date => {
+  const [day, month, year] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+// Fetch mutual fund data from MFAPI
+const fetchMutualFundData = async (schemeCode: number): Promise<MutualFundWithHistory | null> => {
+  try {
+    const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+    if (!response.ok) {
+      console.warn(`Failed to fetch data for scheme ${schemeCode}: ${response.status}`);
+      return null;
+    }
+
+    const data: MFAPIResponse = await response.json();
+
+    if (data.status !== 'SUCCESS' || !data.data || data.data.length === 0) {
+      console.warn(`Invalid data for scheme ${schemeCode}`);
+      return null;
+    }
+
+    // Sort data by date (oldest first)
+    const sortedData = data.data.sort((a, b) => {
+      const dateA = parseMFAPIDate(a.date);
+      const dateB = parseMFAPIDate(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    // Convert to our internal format
+    const historicalPrices: MutualFundPrice[] = sortedData.map(item => ({
+      date: parseMFAPIDate(item.date),
+      nav: parseFloat(item.nav)
+    }));
+
+    // Get latest NAV and date
+    const latestData = sortedData[sortedData.length - 1];
+    const currentNav = parseFloat(latestData.nav);
+    const navDate = parseMFAPIDate(latestData.date);
+
+    const mutualFund: MutualFundWithHistory = {
+      id: schemeCode.toString(),
+      name: data.meta.scheme_name,
+      schemeCode: data.meta.scheme_code,
+      category: data.meta.scheme_category,
+      fundHouse: data.meta.fund_house,
+      currentNav,
+      navDate,
+      riskLevel: getRiskLevel(data.meta.scheme_category),
+      expenseRatio: 0.5, // Default value, would need additional API for actual expense ratio
+      aum: 10000, // Default value, would need additional API for actual AUM
+      historicalPrices
+    };
+
+    return mutualFund;
+  } catch (error) {
+    console.error(`Error fetching data for scheme ${schemeCode}:`, error);
+    return null;
+  }
+};
 
 export function useMutualFunds() {
   const [mutualFunds, setMutualFunds] = useState<MutualFundWithHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
     const loadMutualFunds = async () => {
       setLoading(true);
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setMutualFunds(mockMutualFunds);
-      setLoading(false);
+      setError(null);
+
+      try {
+        // Fetch data for all popular schemes in parallel
+        const promises = POPULAR_SCHEME_CODES.map(code => fetchMutualFundData(code));
+        const results = await Promise.all(promises);
+
+        // Filter out null results (failed fetches)
+        const validFunds = results.filter((fund): fund is MutualFundWithHistory => fund !== null);
+
+        if (validFunds.length === 0) {
+          setError('Failed to load mutual fund data. Please try again later.');
+        } else {
+          setMutualFunds(validFunds);
+        }
+      } catch (error) {
+        console.error('Error loading mutual funds:', error);
+        setError('Failed to load mutual fund data. Please check your internet connection.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadMutualFunds();
@@ -120,6 +131,7 @@ export function useMutualFunds() {
   return {
     mutualFunds,
     loading,
+    error,
     getMutualFundById
   };
 }

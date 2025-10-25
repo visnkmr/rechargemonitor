@@ -90,10 +90,32 @@ export interface ExpenseFormData {
   dissolutionPeriodYears: number;
 }
 
+// MFAPI response types
+export interface MFAPIMeta {
+  fund_house: string;
+  scheme_type: string;
+  scheme_category: string;
+  scheme_code: number;
+  scheme_name: string;
+  isin_growth: string | null;
+  isin_div_reinvestment: string | null;
+}
+
+export interface MFAPIDataPoint {
+  date: string; // DD-MM-YYYY format
+  nav: string; // NAV as string
+}
+
+export interface MFAPIResponse {
+  meta: MFAPIMeta;
+  data: MFAPIDataPoint[];
+  status: string;
+}
+
 export interface MutualFund {
   id: string;
   name: string;
-  schemeCode: string;
+  schemeCode: number;
   category: string;
   fundHouse: string;
   currentNav: number;

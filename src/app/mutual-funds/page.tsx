@@ -9,7 +9,7 @@ import { MutualFundWithHistory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 export default function MutualFundsPage() {
-  const { mutualFunds, loading } = useMutualFunds();
+  const { mutualFunds, loading, error } = useMutualFunds();
   const [selectedFund, setSelectedFund] = useState<MutualFundWithHistory | null>(null);
 
   if (loading) {
@@ -18,6 +18,21 @@ export default function MutualFundsPage() {
         <div className="mx-auto max-w-6xl">
           <div className="text-center py-8">
             <p className="text-lg">Loading mutual funds...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center py-8">
+            <p className="text-lg text-red-600">{error}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              The MFAPI service might be temporarily unavailable. Please try again later.
+            </p>
           </div>
         </div>
       </div>
