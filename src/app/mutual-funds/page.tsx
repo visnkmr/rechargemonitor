@@ -6,6 +6,7 @@ import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
 import { MutualFundMiniChart } from "@/components/mutual-fund-mini-chart";
 import { MFPurchaseTracker } from "@/components/mf-purchase-tracker";
+import { MFAllPurchases } from "@/components/mf-all-purchases";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
 import { MutualFundWithHistory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -204,9 +205,13 @@ export default function MutualFundsPage() {
                 <p className="text-muted-foreground">No funds in watchlist</p>
               )}
             </div>
-          )}
+           )}
 
-          {selectedFund ? (
+           {purchases.length > 0 && (
+             <MFAllPurchases purchases={purchases} />
+           )}
+
+           {selectedFund ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-semibold">{selectedFund.name}</h2>
