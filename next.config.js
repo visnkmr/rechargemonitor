@@ -7,7 +7,8 @@ const nextConfig = {
   assetPrefix: '/rechargemonitor',
   images: {
     unoptimized: true
-  }
+  },
+  turbopack: {}
 };
 
 export default withPWA({
