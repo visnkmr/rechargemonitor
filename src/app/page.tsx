@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ import { useLoanCalculations } from "@/hooks/use-loan-calculations";
 import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
 import { useBills } from "@/hooks/use-bills";
 import { useExpenses } from "@/hooks/use-expenses";
+import { useMutualFunds } from "@/hooks/use-mutual-funds";
+import { MutualFundChart } from "@/components/mutual-fund-chart";
 
 export default function Home() {
   const { recharges, toggleRecharge } = useRecharges();
@@ -35,7 +38,8 @@ export default function Home() {
   const { calculations: xirrCalculations } = useXIRRCalculations();
   const { bills, toggleBill } = useBills();
   const { expenses } = useExpenses();
-  // Mutual funds are now search-based, no preloaded list
+  const { watchlist, watchlistFunds } = useMutualFunds();
+  const [showWatchlistCharts, setShowWatchlistCharts] = useState(false);
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
@@ -163,7 +167,7 @@ export default function Home() {
       description: "Search and analyze mutual fund performance with XIRR",
       href: "/mutual-funds",
       icon: TrendingUp,
-      stats: "Search & Analyze",
+      stats: watchlist.length > 0 ? `${watchlist.length} in watchlist` : "Search & Analyze",
       color: "text-emerald-600",
       bgColor: "bg-emerald-50",
     },
@@ -324,6 +328,67 @@ export default function Home() {
                 )}
               </div>
             </CardContent>
+          </Card>
+        )}
+
+        {/* Watchlist Charts */}
+        {watchlist.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Watchlist Performance
+                  </CardTitle>
+                  <CardDescription>
+                    Performance charts for your saved mutual funds
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowWatchlistCharts(!showWatchlistCharts)}
+                >
+                  {showWatchlistCharts ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Hide Charts
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Show Charts
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {showWatchlistCharts && (
+              <CardContent>
+                <div className="space-y-8">
+                  {watchlistFunds.map((fund) => (
+                    <div key={fund.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">{fund.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {fund.fundHouse} • {fund.category}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold">₹{fund.currentNav.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fund.navDate.toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <MutualFundChart fund={fund} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
           </Card>
         )}
 

@@ -1,21 +1,27 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts";
 import { MutualFundWithHistory } from "@/lib/types";
-import { calculateXIRR } from "@/lib/financial-utils";
+import { calculateXIRR, calculateFundChanges, calculatePercentageChange } from "@/lib/financial-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Check, TrendingUp, TrendingDown } from "lucide-react";
 
 interface MutualFundChartProps {
   fund: MutualFundWithHistory;
+  addToWatchlist?: (schemeCode: number) => void;
+  removeFromWatchlist?: (schemeCode: number) => void;
+  isInWatchlist?: (schemeCode: number) => boolean;
 }
 
-export function MutualFundChart({ fund }: MutualFundChartProps) {
+export function MutualFundChart({ fund, addToWatchlist, removeFromWatchlist, isInWatchlist }: MutualFundChartProps) {
   const [selectedRange, setSelectedRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null
   });
+  const [brushRange, setBrushRange] = useState<[number, number] | null>(null);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -25,6 +31,9 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
       fullDate: price.date
     }));
   }, [fund.historicalPrices]);
+
+  // Calculate change indicators
+  const changes = useMemo(() => calculateFundChanges(fund.historicalPrices), [fund.historicalPrices]);
 
   // Calculate XIRR for selected range
   const xirrResult = useMemo(() => {
@@ -46,11 +55,13 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
     ];
 
     const xirr = calculateXIRR(cashFlows);
+    const percentageChange = calculatePercentageChange(endPrice.nav, startPrice.nav);
+
     return {
       xirr,
       startPrice: startPrice.nav,
       endPrice: endPrice.nav,
-      percentageChange: ((endPrice.nav - startPrice.nav) / startPrice.nav) * 100
+      percentageChange
     };
   }, [selectedRange, fund.historicalPrices]);
 
@@ -72,6 +83,14 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
     }
   };
 
+  const handleBrushChange = (newState: { startIndex?: number; endIndex?: number }) => {
+    if (newState && newState.startIndex !== undefined && newState.endIndex !== undefined) {
+      setBrushRange([newState.startIndex, newState.endIndex]);
+    } else {
+      setBrushRange(null);
+    }
+  };
+
   const clearSelection = () => {
     setSelectedRange({ start: null, end: null });
   };
@@ -83,16 +102,46 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{fund.name}</CardTitle>
-          <CardDescription>
-            Historical NAV Performance
-            {selectedRange.start && (
-              <span className="block mt-1">
-                Selected: {selectedRange.start.toLocaleDateString()}
-                {selectedRange.end && ` to ${selectedRange.end.toLocaleDateString()}`}
-              </span>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <CardTitle>{fund.name}</CardTitle>
+              <CardDescription>
+                Historical NAV Performance
+                {selectedRange.start && (
+                  <span className="block mt-1">
+                    Selected: {selectedRange.start.toLocaleDateString()}
+                    {selectedRange.end && ` to ${selectedRange.end.toLocaleDateString()}`}
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            {addToWatchlist && removeFromWatchlist && isInWatchlist && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (isInWatchlist(fund.schemeCode)) {
+                    removeFromWatchlist(fund.schemeCode);
+                  } else {
+                    addToWatchlist(fund.schemeCode);
+                  }
+                }}
+                className="ml-4"
+              >
+                {isInWatchlist(fund.schemeCode) ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    In Watchlist
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add to Watchlist
+                  </>
+                )}
+              </Button>
             )}
-          </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-96">
@@ -135,6 +184,12 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
                     strokeDasharray="5 5"
                   />
                 )}
+                <Brush
+                  dataKey="date"
+                  height={30}
+                  stroke="#2563eb"
+                  onChange={handleBrushChange}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -145,6 +200,52 @@ export function MutualFundChart({ fund }: MutualFundChartProps) {
             <p className="text-sm text-muted-foreground self-center">
               Click on the chart to select start and end dates for XIRR calculation
             </p>
+          </div>
+
+          {/* Change Indicators */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">1D</div>
+              <Badge variant={changes.day1 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.day1 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.day1.toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">1W</div>
+              <Badge variant={changes.week1 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.week1 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.week1.toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">1M</div>
+              <Badge variant={changes.month1 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.month1 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.month1.toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">3M</div>
+              <Badge variant={changes.month3 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.month3 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.month3.toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">6M</div>
+              <Badge variant={changes.month6 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.month6 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.month6.toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">1Y</div>
+              <Badge variant={changes.year1 >= 0 ? "default" : "destructive"} className="text-xs">
+                {changes.year1 >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                {changes.year1.toFixed(2)}%
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>

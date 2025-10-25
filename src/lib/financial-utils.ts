@@ -73,8 +73,10 @@ export function calculateFDInterest(principal: number, maturityAmount: number): 
   return maturityAmount - principal;
 }
 
+import { MutualFundWithHistory, MFAPIResponse, MFAPIDataPoint } from "./types";
+
 /**
- * Calculate XIRR using Newton-Raphson method for loan cash flows
+ * Calculate XIRR using Newton-Raphson method for irregular cash flows
  * This is an approximation for irregular cash flows
  */
 export function calculateXIRR(cashFlows: { amount: number; date: Date }[], guess: number = 0.1): number {
@@ -217,4 +219,155 @@ export function calculateLoanDetailsWithTotal(
     totalAmountPayable,
     paidInstallments,
   };
+}
+
+/**
+ * Calculate percentage change between two NAV values
+ */
+export function calculatePercentageChange(currentNav: number, previousNav: number): number {
+  if (previousNav === 0) return 0;
+  return ((currentNav - previousNav) / previousNav) * 100;
+}
+
+/**
+ * Get NAV value for a specific date from historical prices
+ */
+export function getNavForDate(historicalPrices: { date: Date; nav: number }[], targetDate: Date): number | null {
+  // Find the closest date (on or before the target date)
+  const sortedPrices = historicalPrices.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  for (const price of sortedPrices) {
+    if (price.date <= targetDate) {
+      return price.nav;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Calculate various time period changes for a mutual fund
+ */
+export function calculateFundChanges(historicalPrices: { date: Date; nav: number }[]) {
+  if (historicalPrices.length === 0) {
+    return {
+      day1: 0,
+      week1: 0,
+      month1: 0,
+      month3: 0,
+      month6: 0,
+      year1: 0
+    };
+  }
+
+  const sortedPrices = historicalPrices.sort((a, b) => b.date.getTime() - a.date.getTime());
+  const latestNav = sortedPrices[0].nav;
+  const latestDate = sortedPrices[0].date;
+
+  // Calculate target dates
+  const day1Date = new Date(latestDate);
+  day1Date.setDate(day1Date.getDate() - 1);
+
+  const week1Date = new Date(latestDate);
+  week1Date.setDate(week1Date.getDate() - 7);
+
+  const month1Date = new Date(latestDate);
+  month1Date.setMonth(month1Date.getMonth() - 1);
+
+  const month3Date = new Date(latestDate);
+  month3Date.setMonth(month3Date.getMonth() - 3);
+
+  const month6Date = new Date(latestDate);
+  month6Date.setMonth(month6Date.getMonth() - 6);
+
+  const year1Date = new Date(latestDate);
+  year1Date.setFullYear(year1Date.getFullYear() - 1);
+
+  // Get NAV values for each period
+  const day1Nav = getNavForDate(sortedPrices, day1Date);
+  const week1Nav = getNavForDate(sortedPrices, week1Date);
+  const month1Nav = getNavForDate(sortedPrices, month1Date);
+  const month3Nav = getNavForDate(sortedPrices, month3Date);
+  const month6Nav = getNavForDate(sortedPrices, month6Date);
+  const year1Nav = getNavForDate(sortedPrices, year1Date);
+
+  return {
+    day1: day1Nav ? calculatePercentageChange(latestNav, day1Nav) : 0,
+    week1: week1Nav ? calculatePercentageChange(latestNav, week1Nav) : 0,
+    month1: month1Nav ? calculatePercentageChange(latestNav, month1Nav) : 0,
+    month3: month3Nav ? calculatePercentageChange(latestNav, month3Nav) : 0,
+    month6: month6Nav ? calculatePercentageChange(latestNav, month6Nav) : 0,
+    year1: year1Nav ? calculatePercentageChange(latestNav, year1Nav) : 0
+  };
+}
+
+/**
+ * Fetch mutual fund data from MFAPI (duplicate of hook function for search component)
+ */
+export async function fetchMutualFundData(schemeCode: number): Promise<MutualFundWithHistory | null> {
+  try {
+    const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+    if (!response.ok) {
+      console.warn(`Failed to fetch data for scheme ${schemeCode}: ${response.status}`);
+      return null;
+    }
+
+    const data: MFAPIResponse = await response.json();
+
+    if (data.status !== 'SUCCESS' || !data.data || data.data.length === 0) {
+      console.warn(`Invalid data for scheme ${schemeCode}`);
+      return null;
+    }
+
+    // Parse DD-MM-YYYY date string to Date object
+    const parseMFAPIDate = (dateStr: string): Date => {
+      const [day, month, year] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    // Sort data by date (oldest first)
+    const sortedData = data.data.sort((a: MFAPIDataPoint, b: MFAPIDataPoint) => {
+      const dateA = parseMFAPIDate(a.date);
+      const dateB = parseMFAPIDate(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    // Use all available data (no filtering to 1 year)
+    const allData = sortedData;
+
+    if (allData.length === 0) {
+      console.warn(`No data available for scheme ${schemeCode}`);
+      return null;
+    }
+
+    // Convert to our internal format
+    const historicalPrices = allData.map((item: MFAPIDataPoint) => ({
+      date: parseMFAPIDate(item.date),
+      nav: parseFloat(item.nav)
+    }));
+
+    // Get latest NAV and date
+    const latestData = allData[allData.length - 1];
+    const currentNav = parseFloat(latestData.nav);
+    const navDate = parseMFAPIDate(latestData.date);
+
+    const mutualFund: MutualFundWithHistory = {
+      id: schemeCode.toString(),
+      name: data.meta.scheme_name,
+      schemeCode: data.meta.scheme_code,
+      category: data.meta.scheme_category,
+      fundHouse: data.meta.fund_house,
+      currentNav,
+      navDate,
+      riskLevel: 'Moderate' as const, // Default
+      expenseRatio: 0.5, // Default
+      aum: 10000, // Default
+      historicalPrices
+    };
+
+    return mutualFund;
+  } catch (error) {
+    console.error(`Error fetching data for scheme ${schemeCode}:`, error);
+    return null;
+  }
 }

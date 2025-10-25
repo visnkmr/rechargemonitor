@@ -138,3 +138,23 @@ export interface MutualFundPrice {
 export interface MutualFundWithHistory extends MutualFund {
   historicalPrices: MutualFundPrice[];
 }
+
+export interface WatchlistItem {
+  schemeCode: number;
+  addedAt: Date;
+}
+
+export interface MFPurchase {
+  id: string;
+  schemeCode: number;
+  purchaseDate: Date;
+  amount: number;
+  units: number;
+  navAtPurchase: number;
+  createdAt: Date;
+}
+
+export interface MFPurchaseFormData {
+  purchaseDate: Date;
+  amount: number;
+}

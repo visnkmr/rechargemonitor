@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { MFAPISearchResult } from "@/lib/types";
+import { MFAPISearchResult, MutualFundWithHistory } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Loader2, Plus, Check, TrendingUp, TrendingDown } from "lucide-react";
+import { MutualFundMiniChart } from "./mutual-fund-mini-chart";
+import { calculateFundChanges } from "@/lib/financial-utils";
 
 interface MutualFundSearchProps {
   searchResults: MFAPISearchResult[];
@@ -14,6 +18,11 @@ interface MutualFundSearchProps {
   onSearch: (query: string) => void;
   onSelectFund: (schemeCode: number) => void;
   onClearSearch: () => void;
+  addToWatchlist: (schemeCode: number) => void;
+  removeFromWatchlist: (schemeCode: number) => void;
+  isInWatchlist: (schemeCode: number) => boolean;
+  selectedFunds?: MutualFundWithHistory[];
+  onLoadFundForChart?: (schemeCode: number) => Promise<void>;
 }
 
 export function MutualFundSearch({
@@ -22,9 +31,16 @@ export function MutualFundSearch({
   error,
   onSearch,
   onSelectFund,
-  onClearSearch
+  onClearSearch,
+  addToWatchlist,
+  removeFromWatchlist,
+  isInWatchlist,
+  selectedFunds = [],
+  onLoadFundForChart
 }: MutualFundSearchProps) {
   const [query, setQuery] = useState("");
+  const [dateRange, setDateRange] = useState<string>("1year");
+  const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +53,20 @@ export function MutualFundSearch({
     onSelectFund(schemeCode);
     setQuery("");
     onClearSearch();
+  };
+
+  const toggleExpanded = async (schemeCode: number) => {
+    const newExpanded = new Set(expandedResults);
+    if (newExpanded.has(schemeCode)) {
+      newExpanded.delete(schemeCode);
+    } else {
+      newExpanded.add(schemeCode);
+      // Load fund data if not already loaded
+      if (onLoadFundForChart && !selectedFunds.find(f => f.schemeCode === schemeCode)) {
+        await onLoadFundForChart(schemeCode);
+      }
+    }
+    setExpandedResults(newExpanded);
   };
 
   return (
@@ -60,6 +90,18 @@ export function MutualFundSearch({
                 className="pl-10"
               />
             </div>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Data</SelectItem>
+                <SelectItem value="1year">1 Year</SelectItem>
+                <SelectItem value="6months">6 Months</SelectItem>
+                <SelectItem value="3months">3 Months</SelectItem>
+                <SelectItem value="1month">1 Month</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="submit" disabled={searching || !query.trim()}>
               {searching ? (
                 <>
@@ -89,19 +131,123 @@ export function MutualFundSearch({
           {searchResults.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-medium text-sm">Search Results:</h3>
-              <div className="max-h-60 overflow-y-auto space-y-1">
-                {searchResults.map((result) => (
-                  <div
-                    key={result.schemeCode}
-                    className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => handleSelectFund(result.schemeCode)}
-                  >
-                    <div className="font-medium text-sm">{result.schemeName}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Scheme Code: {result.schemeCode}
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {searchResults.map((result) => {
+                  const fundData = selectedFunds.find(f => f.schemeCode === result.schemeCode);
+                  const isExpanded = expandedResults.has(result.schemeCode);
+                  const changes = fundData ? calculateFundChanges(fundData.historicalPrices) : null;
+
+                  return (
+                    <div
+                      key={result.schemeCode}
+                      className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1">
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => handleSelectFund(result.schemeCode)}
+                          >
+                            <div className="font-medium text-sm">{result.schemeName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Scheme Code: {result.schemeCode}
+                            </div>
+                          </div>
+                          {fundData && (
+                            <div className="mt-2 text-xs">
+                              <span className="font-semibold">₹{fundData.currentNav.toFixed(2)}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {fundData.navDate.toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpanded(result.schemeCode);
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            {isExpanded ? 'Hide' : 'Chart'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectFund(result.schemeCode);
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            View
+                          </Button>
+                          {isInWatchlist(result.schemeCode) ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFromWatchlist(result.schemeCode);
+                              }}
+                              className="h-6 px-2 text-xs text-green-600 hover:text-green-700"
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Added
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToWatchlist(result.schemeCode);
+                              }}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpanded && fundData && (
+                        <div className="mt-3 pt-3 border-t">
+                          <MutualFundMiniChart fund={fundData} height={50} />
+                          {changes && (
+                            <div className="grid grid-cols-3 gap-1 mt-2 text-xs">
+                              <div className="text-center">
+                                <div className="text-muted-foreground">1M</div>
+                                <Badge variant={changes.month1 >= 0 ? "default" : "destructive"} className="text-xs h-5">
+                                  {changes.month1 >= 0 ? <TrendingUp className="h-2 w-2 mr-1" /> : <TrendingDown className="h-2 w-2 mr-1" />}
+                                  {changes.month1.toFixed(1)}%
+                                </Badge>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-muted-foreground">6M</div>
+                                <Badge variant={changes.month6 >= 0 ? "default" : "destructive"} className="text-xs h-5">
+                                  {changes.month6 >= 0 ? <TrendingUp className="h-2 w-2 mr-1" /> : <TrendingDown className="h-2 w-2 mr-1" />}
+                                  {changes.month6.toFixed(1)}%
+                                </Badge>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-muted-foreground">1Y</div>
+                                <Badge variant={changes.year1 >= 0 ? "default" : "destructive"} className="text-xs h-5">
+                                  {changes.year1 >= 0 ? <TrendingUp className="h-2 w-2 mr-1" /> : <TrendingDown className="h-2 w-2 mr-1" />}
+                                  {changes.year1.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <p className="text-xs text-muted-foreground">
                 Click on a fund to load its historical data (last 1 year)
