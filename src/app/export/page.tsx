@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,41 +82,65 @@ export default function ExportPage() {
     localStorage.setItem('export-import-preferences', JSON.stringify(preferences));
   }, [importMode]);
 
-  const exportData = () => {
-    try {
-      const exportData: ExportData = {
-        exportDate: new Date().toISOString(),
-        version: '3.0'
-      };
+  const generateExportData = useCallback((): ExportData => {
+    const exportData: ExportData = {
+      exportDate: new Date().toISOString(),
+      version: '3.0'
+    };
 
-      // Get selected data from localStorage
-      if (exportSelections.recharges) {
-        exportData.recharges = JSON.parse(localStorage.getItem('recharges') || '[]');
-      }
-      if (exportSelections.sipCalculations) {
-        exportData.sipCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
-      }
-      if (exportSelections.fdCalculations) {
-        exportData.fdCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
-      }
-      if (exportSelections.loanCalculations) {
-        exportData.loanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
-      }
-      if (exportSelections.bills) {
-        exportData.bills = JSON.parse(localStorage.getItem('bills') || '[]');
-      }
-      if (exportSelections.expenses) {
-        exportData.expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      }
-      if (exportSelections.xirrCalculations) {
-        exportData.xirrCalculations = JSON.parse(localStorage.getItem('xirr-calculations') || '[]');
-      }
-      if (exportSelections.mfWatchlist) {
-        exportData.mfWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
-      }
-      if (exportSelections.mfPurchases) {
-        exportData.mfPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
-      }
+    // Get selected data from localStorage
+    if (exportSelections.recharges) {
+      exportData.recharges = JSON.parse(localStorage.getItem('recharges') || '[]');
+    }
+    if (exportSelections.sipCalculations) {
+      exportData.sipCalculations = JSON.parse(localStorage.getItem('sip-calculations') || '[]');
+    }
+    if (exportSelections.fdCalculations) {
+      exportData.fdCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
+    }
+    if (exportSelections.loanCalculations) {
+      exportData.loanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
+    }
+    if (exportSelections.bills) {
+      exportData.bills = JSON.parse(localStorage.getItem('bills') || '[]');
+    }
+    if (exportSelections.expenses) {
+      exportData.expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    }
+    if (exportSelections.xirrCalculations) {
+      exportData.xirrCalculations = JSON.parse(localStorage.getItem('xirr-calculations') || '[]');
+    }
+    if (exportSelections.mfWatchlist) {
+      exportData.mfWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
+    }
+    if (exportSelections.mfPurchases) {
+      exportData.mfPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
+    }
+
+    return exportData;
+  }, [exportSelections]);
+
+  const updateExportText = useCallback(() => {
+    try {
+      const exportData = generateExportData();
+      const dataStr = JSON.stringify(exportData, null, 2);
+      setExportJsonText(dataStr);
+    } catch (error) {
+      console.error('Failed to generate export text:', error);
+      setExportJsonText('Error generating export data');
+    }
+  }, [generateExportData]);
+
+  // Update export text when selections change and text is visible
+  useEffect(() => {
+    if (showExportText) {
+      updateExportText();
+    }
+  }, [updateExportText, showExportText]);
+
+  const exportData = useCallback(() => {
+    try {
+      const exportData = generateExportData();
 
       // Create and download JSON file
       const dataStr = JSON.stringify(exportData, null, 2);
@@ -129,16 +153,13 @@ export default function ExportPage() {
       linkElement.setAttribute('download', exportFileDefaultName);
       linkElement.click();
 
-      // Also set the text for display
-      setExportJsonText(dataStr);
-
       setImportStatus('success');
       setImportMessage('Data exported successfully!');
     } catch {
       setImportStatus('error');
       setImportMessage('Failed to export data. Please try again.');
     }
-  };
+  }, [generateExportData]);
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -686,8 +707,9 @@ export default function ExportPage() {
                    </Button>
                    <Button
                      variant="outline"
-                     onClick={() => setShowExportText(!showExportText)}
-                     disabled={!exportJsonText}
+                     onClick={() => {
+                       setShowExportText(!showExportText);
+                     }}
                    >
                      {showExportText ? (
                        <>
