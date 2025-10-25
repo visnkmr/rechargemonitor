@@ -1,43 +1,24 @@
 "use client";
 
-import { useState } from "react";
+
 import Link from "next/link";
-import { MutualFundsList } from "@/components/mutual-funds-list";
+import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
-import { MutualFundWithHistory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 export default function MutualFundsPage() {
-  const { mutualFunds, loading, error } = useMutualFunds();
-  const [selectedFund, setSelectedFund] = useState<MutualFundWithHistory | null>(null);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center py-8">
-            <p className="text-lg">Loading mutual funds...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center py-8">
-            <p className="text-lg text-red-600">{error}</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              The MFAPI service might be temporarily unavailable. Please try again later.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const {
+    selectedFund,
+    searchResults,
+    loading,
+    searching,
+    error,
+    searchFunds,
+    loadFund,
+    clearSearch,
+    clearSelectedFund
+  } = useMutualFunds();
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -47,7 +28,7 @@ export default function MutualFundsPage() {
             <div>
               <h1 className="text-4xl font-bold">Mutual Funds</h1>
               <p className="text-muted-foreground">
-                Track mutual fund performance and calculate XIRR for selected periods.
+                Search and analyze mutual fund performance with XIRR calculations.
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -79,25 +60,45 @@ export default function MutualFundsPage() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
-            <MutualFundsList
-              mutualFunds={mutualFunds}
-              selectedFund={selectedFund}
-              onSelectFund={setSelectedFund}
-            />
-          </div>
-          <div className="lg:col-span-2">
-            {selectedFund ? (
-              <MutualFundChart fund={selectedFund} />
-            ) : (
-              <div className="bg-white rounded-lg shadow p-8 text-center">
-                <p className="text-muted-foreground">
-                  Select a mutual fund from the list to view its historical performance and calculate XIRR.
-                </p>
+        <div className="space-y-8">
+          <MutualFundSearch
+            searchResults={searchResults}
+            searching={searching}
+            error={error}
+            onSearch={searchFunds}
+            onSelectFund={loadFund}
+            onClearSearch={clearSearch}
+          />
+
+          {selectedFund ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-semibold">{selectedFund.name}</h2>
+                <Button variant="outline" onClick={clearSelectedFund}>
+                  Search Another Fund
+                </Button>
               </div>
-            )}
-          </div>
+              <MutualFundChart fund={selectedFund} />
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <p className="text-muted-foreground">
+                Search for a mutual fund above to view its historical performance and calculate XIRR.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Data shows the last 1 year of NAV history for accurate analysis.
+              </p>
+            </div>
+          )}
+
+          {loading && (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <p className="text-lg">Loading fund data...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Fetching historical NAV data for the last year.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

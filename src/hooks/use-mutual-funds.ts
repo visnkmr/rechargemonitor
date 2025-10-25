@@ -1,21 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MutualFundWithHistory, MutualFundPrice, MFAPIResponse } from "@/lib/types";
-
-// Popular mutual fund scheme codes (Direct Plan variants)
-const POPULAR_SCHEME_CODES = [
-  100122, // HDFC Balanced Fund - Growth Option
-  102529, // ICICI Prudential Bluechip Fund - Direct Plan - Growth
-  103504, // SBI Small Cap Fund - Direct Plan - Growth
-  120503, // Axis Midcap Fund - Direct Plan - Growth
-  112090, // Kotak Flexicap Fund - Direct Plan - Growth
-  118989, // Nippon India Large Cap Fund - Direct Plan - Growth Option
-  120841, // Mirae Asset Large Cap Fund - Direct Plan - Growth
-  120252, // DSP Midcap Fund - Direct Plan - Growth
-  120505, // UTI Flexi Cap Fund - Direct Plan - Growth Option
-  120468, // Franklin India Flexi Cap Fund - Direct Plan - Growth
-];
+import { useState, useCallback } from "react";
+import { MutualFundWithHistory, MutualFundPrice, MFAPIResponse, MFAPISearchResult } from "@/lib/types";
 
 // Risk level mapping based on category
 const getRiskLevel = (category: string): 'Low' | 'Moderate' | 'High' => {
@@ -35,7 +21,24 @@ const parseMFAPIDate = (dateStr: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-// Fetch mutual fund data from MFAPI
+// Search mutual funds by query
+const searchMutualFunds = async (query: string): Promise<MFAPISearchResult[]> => {
+  try {
+    const response = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      console.warn(`Search failed for query "${query}": ${response.status}`);
+      return [];
+    }
+
+    const data: MFAPISearchResult[] = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error searching funds for "${query}":`, error);
+    return [];
+  }
+};
+
+// Fetch mutual fund data from MFAPI and filter to last 1 year
 const fetchMutualFundData = async (schemeCode: number): Promise<MutualFundWithHistory | null> => {
   try {
     const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
@@ -58,14 +61,28 @@ const fetchMutualFundData = async (schemeCode: number): Promise<MutualFundWithHi
       return dateA.getTime() - dateB.getTime();
     });
 
+    // Filter to last 1 year only
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const recentData = sortedData.filter(item => {
+      const itemDate = parseMFAPIDate(item.date);
+      return itemDate >= oneYearAgo;
+    });
+
+    if (recentData.length === 0) {
+      console.warn(`No data available for scheme ${schemeCode} in the last year`);
+      return null;
+    }
+
     // Convert to our internal format
-    const historicalPrices: MutualFundPrice[] = sortedData.map(item => ({
+    const historicalPrices: MutualFundPrice[] = recentData.map(item => ({
       date: parseMFAPIDate(item.date),
       nav: parseFloat(item.nav)
     }));
 
     // Get latest NAV and date
-    const latestData = sortedData[sortedData.length - 1];
+    const latestData = recentData[recentData.length - 1];
     const currentNav = parseFloat(latestData.nav);
     const navDate = parseMFAPIDate(latestData.date);
 
@@ -91,47 +108,71 @@ const fetchMutualFundData = async (schemeCode: number): Promise<MutualFundWithHi
 };
 
 export function useMutualFunds() {
-  const [mutualFunds, setMutualFunds] = useState<MutualFundWithHistory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedFund, setSelectedFund] = useState<MutualFundWithHistory | null>(null);
+  const [searchResults, setSearchResults] = useState<MFAPISearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadMutualFunds = async () => {
-      setLoading(true);
-      setError(null);
+  const searchFunds = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
 
-      try {
-        // Fetch data for all popular schemes in parallel
-        const promises = POPULAR_SCHEME_CODES.map(code => fetchMutualFundData(code));
-        const results = await Promise.all(promises);
+    setSearching(true);
+    setError(null);
 
-        // Filter out null results (failed fetches)
-        const validFunds = results.filter((fund): fund is MutualFundWithHistory => fund !== null);
-
-        if (validFunds.length === 0) {
-          setError('Failed to load mutual fund data. Please try again later.');
-        } else {
-          setMutualFunds(validFunds);
-        }
-      } catch (error) {
-        console.error('Error loading mutual funds:', error);
-        setError('Failed to load mutual fund data. Please check your internet connection.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMutualFunds();
+    try {
+      const results = await searchMutualFunds(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching funds:', error);
+      setError('Failed to search funds. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
   }, []);
 
-  const getMutualFundById = (id: string): MutualFundWithHistory | undefined => {
-    return mutualFunds.find(fund => fund.id === id);
-  };
+  const loadFund = useCallback(async (schemeCode: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const fund = await fetchMutualFundData(schemeCode);
+      if (fund) {
+        setSelectedFund(fund);
+      } else {
+        setError('Failed to load fund data. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading fund:', error);
+      setError('Failed to load fund data. Please check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchResults([]);
+    setError(null);
+  }, []);
+
+  const clearSelectedFund = useCallback(() => {
+    setSelectedFund(null);
+    setError(null);
+  }, []);
 
   return {
-    mutualFunds,
+    selectedFund,
+    searchResults,
     loading,
+    searching,
     error,
-    getMutualFundById
+    searchFunds,
+    loadFund,
+    clearSearch,
+    clearSelectedFund
   };
 }

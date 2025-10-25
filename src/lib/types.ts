@@ -112,6 +112,11 @@ export interface MFAPIResponse {
   status: string;
 }
 
+export interface MFAPISearchResult {
+  schemeCode: number;
+  schemeName: string;
+}
+
 export interface MutualFund {
   id: string;
   name: string;
