@@ -26,6 +26,7 @@ import { useLoanCalculations } from "@/hooks/use-loan-calculations";
 import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
 import { useBills } from "@/hooks/use-bills";
 import { useExpenses } from "@/hooks/use-expenses";
+import { useMutualFunds } from "@/hooks/use-mutual-funds";
 
 export default function Home() {
   const { recharges, toggleRecharge } = useRecharges();
@@ -35,6 +36,7 @@ export default function Home() {
   const { calculations: xirrCalculations } = useXIRRCalculations();
   const { bills, toggleBill } = useBills();
   const { expenses } = useExpenses();
+  const { mutualFunds } = useMutualFunds();
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
@@ -145,6 +147,14 @@ export default function Home() {
        color: "text-orange-600",
        bgColor: "bg-orange-50",
      },
+     {
+       title: "Mutual Funds",
+       value: mutualFunds.length,
+       description: "Tracked funds",
+       icon: TrendingUp,
+       color: "text-emerald-600",
+       bgColor: "bg-emerald-50",
+     },
     {
       title: "Monthly Spend",
       value: `₹${totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -156,6 +166,15 @@ export default function Home() {
   ];
 
   const tools = [
+    {
+      title: "Mutual Funds",
+      description: "Track mutual fund performance and calculate XIRR",
+      href: "/mutual-funds",
+      icon: TrendingUp,
+      stats: `${mutualFunds.length} funds`,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+    },
     {
       title: "Recharge Monitor",
       description: "Track mobile recharges and active plans",

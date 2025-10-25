@@ -89,3 +89,25 @@ export interface ExpenseFormData {
   date: Date;
   dissolutionPeriodYears: number;
 }
+
+export interface MutualFund {
+  id: string;
+  name: string;
+  schemeCode: string;
+  category: string;
+  fundHouse: string;
+  currentNav: number;
+  navDate: Date;
+  riskLevel: 'Low' | 'Moderate' | 'High';
+  expenseRatio: number;
+  aum: number; // Assets Under Management
+}
+
+export interface MutualFundPrice {
+  date: Date;
+  nav: number;
+}
+
+export interface MutualFundWithHistory extends MutualFund {
+  historicalPrices: MutualFundPrice[];
+}
