@@ -7,18 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ArrowLeft, Plus, Trash2, Save, Edit, Calendar, Type } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Edit, Calendar, Type, Eye, EyeOff } from "lucide-react";
 import { useExpenses } from "@/hooks/use-expenses";
 import { Expense, ExpenseFormData } from "@/lib/types";
 import { format } from "date-fns";
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense, toggleExpense } = useExpenses();
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     amount: 0,
     date: new Date(),
     dissolutionPeriodYears: 5,
+    enabled: true,
   });
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [useDatePicker, setUseDatePicker] = useState(false);
@@ -59,6 +60,7 @@ export default function ExpensesPage() {
         perDayCost: calculatedCosts.perDayCost,
         perMonthCost: calculatedCosts.perMonthCost,
         perYearCost: calculatedCosts.perYearCost,
+        enabled: formData.enabled ?? editingExpense.enabled,
       };
       updateExpense(editingExpense.id, updatedExpense);
       setEditingExpense(null);
@@ -74,6 +76,7 @@ export default function ExpensesPage() {
         perMonthCost: calculatedCosts.perMonthCost,
         perYearCost: calculatedCosts.perYearCost,
         createdAt: new Date(),
+        enabled: formData.enabled ?? true,
       };
       addExpense(newExpense);
     }
@@ -95,6 +98,7 @@ export default function ExpensesPage() {
       amount: expense.amount,
       date: expense.date,
       dissolutionPeriodYears: expense.dissolutionPeriodYears,
+      enabled: expense.enabled,
     });
     setDateText(format(expense.date, "yyyy-MM-dd"));
     setUseDatePicker(false);
@@ -107,6 +111,7 @@ export default function ExpensesPage() {
       amount: 0,
       date: new Date(),
       dissolutionPeriodYears: 5,
+      enabled: true,
     });
     setDateText("");
   };
@@ -120,8 +125,9 @@ export default function ExpensesPage() {
     }
   };
 
-  const totalMonthlyCost = expenses.reduce((sum, expense) => sum + expense.perMonthCost, 0);
-  const totalYearlyCost = expenses.reduce((sum, expense) => sum + expense.perYearCost, 0);
+  const enabledExpenses = expenses.filter(expense => expense.enabled);
+  const totalMonthlyCost = enabledExpenses.reduce((sum, expense) => sum + expense.perMonthCost, 0);
+  const totalYearlyCost = enabledExpenses.reduce((sum, expense) => sum + expense.perYearCost, 0);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -243,6 +249,19 @@ export default function ExpensesPage() {
                    />
                  </div>
 
+                 <div className="flex items-center space-x-2">
+                   <input
+                     type="checkbox"
+                     id="enabled"
+                     checked={formData.enabled ?? true}
+                     onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                   />
+                   <Label htmlFor="enabled" className="text-sm font-medium text-gray-700">
+                     Include in expense summary calculations
+                   </Label>
+                 </div>
+
                  {/* Live Calculation Display */}
                  {formData.amount > 0 && formData.dissolutionPeriodYears > 0 && (
                    <div className="p-4 bg-blue-50 rounded-lg border">
@@ -316,12 +335,15 @@ export default function ExpensesPage() {
                     ₹{totalYearlyCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Total Expenses</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {expenses.length}
-                  </p>
-                </div>
+                 <div className="text-center p-4 bg-purple-50 rounded-lg">
+                   <p className="text-sm text-muted-foreground">Active Expenses</p>
+                   <p className="text-2xl font-bold text-purple-600">
+                     {enabledExpenses.length} / {expenses.length}
+                   </p>
+                   <p className="text-xs text-muted-foreground">
+                     enabled / total
+                   </p>
+                 </div>
               </div>
             </CardContent>
           </Card>
@@ -341,8 +363,23 @@ export default function ExpensesPage() {
                 {expenses.map((expense) => (
                   <div key={expense.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                       <div className="flex items-center justify-between mb-2">
-                         <h3 className="font-medium">{expense.name}</h3>
+                         <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center gap-2">
+                           <h3 className="font-medium">{expense.name}</h3>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => toggleExpense(expense.id)}
+                             className="h-6 w-6 p-0 hover:bg-gray-100"
+                             title={expense.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                           >
+                             {expense.enabled ? (
+                               <Eye className="h-3 w-3 text-green-600" />
+                             ) : (
+                               <EyeOff className="h-3 w-3 text-gray-400" />
+                             )}
+                           </Button>
+                         </div>
                          <div className="flex gap-1">
                            <Button
                              variant="ghost"

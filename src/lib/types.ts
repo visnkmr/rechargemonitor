@@ -81,6 +81,7 @@ export interface Expense {
   perMonthCost: number;
   perYearCost: number;
   createdAt: Date;
+  enabled: boolean; // Whether to include in expense summary calculations
 }
 
 export interface ExpenseFormData {
@@ -88,6 +89,7 @@ export interface ExpenseFormData {
   amount: number;
   date: Date;
   dissolutionPeriodYears: number;
+  enabled?: boolean;
 }
 
 // MFAPI response types

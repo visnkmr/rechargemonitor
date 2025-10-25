@@ -21,6 +21,7 @@ function loadExpensesFromStorage(): Expense[] {
         ...expense,
         date: new Date(expense.date),
         createdAt: new Date(expense.createdAt),
+        enabled: expense.enabled ?? true, // Default to true for existing expenses
       }));
     } catch (error) {
       console.error("Failed to parse expenses from localStorage", error);
@@ -52,5 +53,11 @@ export function useExpenses() {
     setExpenses((current) => current.filter(expense => expense.id !== id));
   };
 
-  return { expenses, addExpense, updateExpense, deleteExpense };
+  const toggleExpense = (id: string) => {
+    setExpenses((current) => current.map(expense =>
+      expense.id === id ? { ...expense, enabled: !expense.enabled } : expense
+    ));
+  };
+
+  return { expenses, addExpense, updateExpense, deleteExpense, toggleExpense };
 }

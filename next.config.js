@@ -3,8 +3,8 @@ import withPWA from 'next-pwa'
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
-  basePath: '/rechargemonitor',
-  assetPrefix: '/rechargemonitor',
+  // basePath: '/rechargemonitor',
+  // assetPrefix: '/rechargemonitor',
   images: {
     unoptimized: true
   },
