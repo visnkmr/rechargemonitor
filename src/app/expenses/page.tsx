@@ -7,19 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Edit, Calendar, Type } from "lucide-react";
 import { useExpenses } from "@/hooks/use-expenses";
 import { Expense, ExpenseFormData } from "@/lib/types";
 import { format } from "date-fns";
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     amount: 0,
     date: new Date(),
     dissolutionPeriodYears: 5,
   });
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [useDatePicker, setUseDatePicker] = useState(false);
+  const [dateText, setDateText] = useState("");
 
   // Live calculation of amortized costs
   const calculatedCosts = useMemo(() => {
@@ -45,19 +48,35 @@ export default function ExpensesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newExpense: Expense = {
-      id: Date.now().toString(),
-      name: formData.name,
-      amount: formData.amount,
-      date: formData.date,
-      dissolutionPeriodYears: formData.dissolutionPeriodYears,
-      perDayCost: calculatedCosts.perDayCost,
-      perMonthCost: calculatedCosts.perMonthCost,
-      perYearCost: calculatedCosts.perYearCost,
-      createdAt: new Date(),
-    };
-
-    addExpense(newExpense);
+    if (editingExpense) {
+      // Update existing expense
+      const updatedExpense: Expense = {
+        ...editingExpense,
+        name: formData.name,
+        amount: formData.amount,
+        date: formData.date,
+        dissolutionPeriodYears: formData.dissolutionPeriodYears,
+        perDayCost: calculatedCosts.perDayCost,
+        perMonthCost: calculatedCosts.perMonthCost,
+        perYearCost: calculatedCosts.perYearCost,
+      };
+      updateExpense(editingExpense.id, updatedExpense);
+      setEditingExpense(null);
+    } else {
+      // Add new expense
+      const newExpense: Expense = {
+        id: Date.now().toString(),
+        name: formData.name,
+        amount: formData.amount,
+        date: formData.date,
+        dissolutionPeriodYears: formData.dissolutionPeriodYears,
+        perDayCost: calculatedCosts.perDayCost,
+        perMonthCost: calculatedCosts.perMonthCost,
+        perYearCost: calculatedCosts.perYearCost,
+        createdAt: new Date(),
+      };
+      addExpense(newExpense);
+    }
 
     // Reset form
     setFormData({
@@ -66,6 +85,39 @@ export default function ExpensesPage() {
       date: new Date(),
       dissolutionPeriodYears: 5,
     });
+    setDateText("");
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setFormData({
+      name: expense.name,
+      amount: expense.amount,
+      date: expense.date,
+      dissolutionPeriodYears: expense.dissolutionPeriodYears,
+    });
+    setDateText(format(expense.date, "yyyy-MM-dd"));
+    setUseDatePicker(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingExpense(null);
+    setFormData({
+      name: "",
+      amount: 0,
+      date: new Date(),
+      dissolutionPeriodYears: 5,
+    });
+    setDateText("");
+  };
+
+  const handleDateTextChange = (value: string) => {
+    setDateText(value);
+    // Try to parse the date
+    const parsedDate = new Date(value);
+    if (!isNaN(parsedDate.getTime())) {
+      setFormData(prev => ({ ...prev, date: parsedDate }));
+    }
   };
 
   const totalMonthlyCost = expenses.reduce((sum, expense) => sum + expense.perMonthCost, 0);
@@ -93,17 +145,20 @@ export default function ExpensesPage() {
         </header>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Add Expense Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Add New Expense
-              </CardTitle>
-              <CardDescription>
-                Enter expense details to calculate amortized costs
-              </CardDescription>
-            </CardHeader>
+           {/* Add/Edit Expense Form */}
+           <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                 {editingExpense ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                 {editingExpense ? "Edit Expense" : "Add New Expense"}
+               </CardTitle>
+               <CardDescription>
+                 {editingExpense
+                   ? "Update expense details and recalculate amortized costs"
+                   : "Enter expense details to calculate amortized costs"
+                 }
+               </CardDescription>
+             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -131,13 +186,49 @@ export default function ExpensesPage() {
                   />
                 </div>
 
-                <div>
-                  <Label>Date</Label>
-                  <DatePicker
-                    date={formData.date}
-                    onDateChange={(date) => setFormData({ ...formData, date: date || new Date() })}
-                  />
-                </div>
+                 <div>
+                   <div className="flex items-center justify-between mb-2">
+                     <Label>Date</Label>
+                     <div className="flex gap-1">
+                       <Button
+                         type="button"
+                         variant={useDatePicker ? "default" : "outline"}
+                         size="sm"
+                         onClick={() => setUseDatePicker(true)}
+                         className="h-7 px-2"
+                       >
+                         <Calendar className="h-3 w-3 mr-1" />
+                         Picker
+                       </Button>
+                       <Button
+                         type="button"
+                         variant={!useDatePicker ? "default" : "outline"}
+                         size="sm"
+                         onClick={() => setUseDatePicker(false)}
+                         className="h-7 px-2"
+                       >
+                         <Type className="h-3 w-3 mr-1" />
+                         Text
+                       </Button>
+                     </div>
+                   </div>
+                   {useDatePicker ? (
+                     <DatePicker
+                       date={formData.date}
+                       onDateChange={(date) => {
+                         setFormData({ ...formData, date: date || new Date() });
+                         setDateText(format(date || new Date(), "yyyy-MM-dd"));
+                       }}
+                     />
+                   ) : (
+                     <Input
+                       type="date"
+                       value={dateText}
+                       onChange={(e) => handleDateTextChange(e.target.value)}
+                       placeholder="YYYY-MM-DD"
+                     />
+                   )}
+                 </div>
 
                  <div>
                    <Label htmlFor="dissolutionPeriod">Dissolution Period (Years)</Label>
@@ -179,10 +270,26 @@ export default function ExpensesPage() {
                    </div>
                  )}
 
-                 <Button type="submit" className="w-full" disabled={!formData.name.trim() || formData.amount <= 0}>
-                   <Save className="h-4 w-4 mr-2" />
-                   Save Expense
-                 </Button>
+                 <div className="flex gap-2">
+                   <Button
+                     type="submit"
+                     className="flex-1"
+                     disabled={!formData.name.trim() || formData.amount <= 0}
+                   >
+                     <Save className="h-4 w-4 mr-2" />
+                     {editingExpense ? "Update Expense" : "Save Expense"}
+                   </Button>
+                   {editingExpense && (
+                     <Button
+                       type="button"
+                       variant="outline"
+                       onClick={handleCancelEdit}
+                       className="flex-1"
+                     >
+                       Cancel
+                     </Button>
+                   )}
+                 </div>
               </form>
             </CardContent>
           </Card>
@@ -234,17 +341,27 @@ export default function ExpensesPage() {
                 {expenses.map((expense) => (
                   <div key={expense.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium">{expense.name}</h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteExpense(expense.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                       <div className="flex items-center justify-between mb-2">
+                         <h3 className="font-medium">{expense.name}</h3>
+                         <div className="flex gap-1">
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => handleEditExpense(expense)}
+                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                           >
+                             <Edit className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => deleteExpense(expense.id)}
+                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </div>
+                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
                         ₹{expense.amount.toLocaleString()} on {format(expense.date, "PPP")}
                       </p>
