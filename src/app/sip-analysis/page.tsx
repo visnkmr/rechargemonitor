@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft } from "lucide-react";
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
@@ -47,6 +48,8 @@ export default function SIPAnalysisPage() {
   const [error, setError] = useState<string>("");
   const [sipResults, setSipResults] = useState<{ [key: string]: SIPResult }>({});
   const [bulkResults, setBulkResults] = useState<BulkInvestmentResult[]>([]);
+  const [bulkFilter, setBulkFilter] = useState<string>("all");
+  const [sipSectionCollapsed, setSipSectionCollapsed] = useState<boolean>(false);
   const [searchSelectedFunds, setSearchSelectedFunds] = useState<MutualFundWithHistory[]>([]);
 
   const {
@@ -272,6 +275,20 @@ export default function SIPAnalysisPage() {
     return results; // Show all results within the date range
   };
 
+  const getFilteredBulkResults = () => {
+    if (bulkFilter === "all") {
+      return bulkResults;
+    } else if (bulkFilter === "best10") {
+      return [...bulkResults]
+        .sort((a, b) => b.gainPct - a.gainPct)
+        .slice(0, 10);
+    } else if (bulkFilter.startsWith("first")) {
+      const days = parseInt(bulkFilter.replace("first", ""));
+      return [...bulkResults].slice(0, days);
+    }
+    return bulkResults;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-6xl">
@@ -400,14 +417,37 @@ export default function SIPAnalysisPage() {
               {/* SIP Results */}
               <Card>
                 <CardHeader>
-                  <CardTitle>SIP Strategy Comparison</CardTitle>
-                  <CardDescription>
-                    Compare different SIP frequencies and timing strategies.
-                  </CardDescription>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>SIP Strategy Comparison</CardTitle>
+                      <CardDescription>
+                        Compare different SIP frequencies and timing strategies.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSipSectionCollapsed(!sipSectionCollapsed)}
+                      className="flex items-center gap-2"
+                    >
+                      {sipSectionCollapsed ? (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          Expand
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="h-4 w-4" />
+                          Collapse
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {Object.entries(sipResults).map(([strategy, result]) => (
+                {!sipSectionCollapsed && (
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(sipResults).map(([strategy, result]) => (
                       <div key={strategy} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-medium">{strategy}</h3>
@@ -449,18 +489,38 @@ export default function SIPAnalysisPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
 
               {/* Bulk Investment Results */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Bulk Investment Analysis</CardTitle>
-                  <CardDescription>
-                    Historical performance of lumpsum investments over the selected bulk investment date range.
-                  </CardDescription>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle>Bulk Investment Analysis</CardTitle>
+                      <CardDescription>
+                        Historical performance of lumpsum investments over the selected bulk investment date range.
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="bulkFilter" className="text-sm">Show:</Label>
+                      <Select value={bulkFilter} onValueChange={setBulkFilter}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Results</SelectItem>
+                          <SelectItem value="best10">Best 10 Days</SelectItem>
+                          <SelectItem value="first30">First 30 Days</SelectItem>
+                          <SelectItem value="first60">First 60 Days</SelectItem>
+                          <SelectItem value="first90">First 90 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -475,7 +535,7 @@ export default function SIPAnalysisPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {bulkResults.map((result, index) => (
+                      {getFilteredBulkResults().map((result, index) => (
                         <TableRow key={index}>
                           <TableCell>{new Date(result.date).toLocaleDateString()}</TableCell>
                           <TableCell>₹{result.nav.toFixed(2)}</TableCell>
