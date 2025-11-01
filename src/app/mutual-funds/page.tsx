@@ -85,6 +85,9 @@ export default function MutualFundsPage() {
               <Link href="/xirr">
                 <Button variant="outline">XIRR Calculator</Button>
               </Link>
+              <Link href="/sip-analysis">
+                <Button variant="outline">SIP Analysis</Button>
+              </Link>
               <Link href="/bills">
                 <Button variant="outline">Bill Manager</Button>
               </Link>
