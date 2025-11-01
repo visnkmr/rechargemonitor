@@ -33,10 +33,16 @@ interface BulkInvestmentResult {
   gainPct: number;
 }
 
+interface NavDataItem {
+  date: string;
+  nav: number;
+}
+
 export default function SIPAnalysisPage() {
   const [selectedFund, setSelectedFund] = useState<string>("");
   const [investmentAmount, setInvestmentAmount] = useState<number>(1000);
   const [bulkAmount, setBulkAmount] = useState<number>(50000);
+  const [dateRangeDays, setDateRangeDays] = useState<number>(365);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [sipResults, setSipResults] = useState<{ [key: string]: SIPResult }>({});
@@ -81,7 +87,7 @@ export default function SIPAnalysisPage() {
 
     try {
       // Fetch real NAV data from MF API
-      const navData = await fetchNavData(selectedFund);
+      const navData = await fetchNavData(selectedFund, dateRangeDays);
       
       const results: { [key: string]: SIPResult } = {};
       const latestNav = navData[navData.length - 1].nav;
@@ -91,12 +97,12 @@ export default function SIPAnalysisPage() {
       
       // Create NAV lookup for consistent data across all strategies
       const navLookup: { [key: string]: number } = {};
-      navData.forEach(item => {
+      navData.forEach((item: NavDataItem) => {
         navLookup[item.date] = item.nav;
       });
       
       // Daily SIP
-      results.daily = calculateSIPResult(navData.map(d => d.date), investmentAmount, latestNav, navLookup);
+      results.daily = calculateSIPResult(navData.map((d: NavDataItem) => d.date), investmentAmount, latestNav, navLookup);
       
       // Weekly SIP
       const weeklyDates = generateWeeklyDates(navData);
@@ -105,8 +111,8 @@ export default function SIPAnalysisPage() {
       // Day of month SIPs
       for (let day = 1; day <= 31; day++) {
         const dayDates = navData
-          .filter(d => new Date(d.date).getDate() === day)
-          .map(d => d.date);
+          .filter((d: NavDataItem) => new Date(d.date).getDate() === day)
+          .map((d: NavDataItem) => d.date);
         
         if (dayDates.length > 0) {
           const dayLabel = `${day}${getDaySuffix(day)} of month`;
@@ -118,8 +124,8 @@ export default function SIPAnalysisPage() {
       const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
       for (let wd = 0; wd < 7; wd++) {
         const dayDates = navData
-          .filter(d => new Date(d.date).getDay() === wd)
-          .map(d => d.date);
+          .filter((d: NavDataItem) => new Date(d.date).getDay() === wd)
+          .map((d: NavDataItem) => d.date);
         
         if (dayDates.length > 0) {
           results[`Every ${weekdayNames[wd]}`] = calculateSIPResult(dayDates, investmentAmount, latestNav, navLookup);
@@ -139,7 +145,7 @@ export default function SIPAnalysisPage() {
     }
   };
 
-  const fetchNavData = async (schemeCode: string) => {
+  const fetchNavData = async (schemeCode: string, days: number = 365) => {
     const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
     
     if (!response.ok) {
@@ -155,7 +161,7 @@ export default function SIPAnalysisPage() {
     // Parse the NAV data from the API response
     // The API returns data in format: { "date": "dd-mm-yyyy", "nav": "123.45" }
     // Convert date format from dd-mm-yyyy to yyyy-mm-dd for proper JavaScript Date parsing
-    const navData = data.data.map((item: any) => {
+    const navData = data.data.map((item: { date: string; nav: string }) => {
       const [day, month, year] = item.date.split('-');
       const formattedDate = `${year}-${month}-${day}`;
       return {
@@ -165,13 +171,24 @@ export default function SIPAnalysisPage() {
     });
     
     // Sort by date to ensure chronological order
-    navData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    navData.sort((a: { date: string; nav: number }, b: { date: string; nav: number }) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
     
-    return navData;
+    // Filter by date range (last N days)
+    const latestDate = new Date(navData[navData.length - 1].date);
+    const cutoffDate = new Date(latestDate);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const filteredNavData = navData.filter((item: NavDataItem) => 
+      new Date(item.date) >= cutoffDate
+    );
+    
+    return filteredNavData;
   };
 
-  const generateWeeklyDates = (navData: any[]) => {
-    const dates = [];
+  const generateWeeklyDates = (navData: NavDataItem[]) => {
+    const dates: string[] = [];
     const firstDate = new Date(navData[0].date);
     const lastDate = new Date(navData[navData.length - 1].date);
     
@@ -227,11 +244,11 @@ export default function SIPAnalysisPage() {
     };
   };
 
-  const calculateBulkInvestments = (navData: any[], amount: number, latestNav: number): BulkInvestmentResult[] => {
+  const calculateBulkInvestments = (navData: NavDataItem[], amount: number, latestNav: number): BulkInvestmentResult[] => {
     const results: BulkInvestmentResult[] = [];
     const latestDate = new Date(navData[navData.length - 1].date);
     const startDate = new Date(latestDate);
-    startDate.setDate(startDate.getDate() - 365); // 1 year before latest date
+    startDate.setDate(startDate.getDate() - dateRangeDays); // Use selected date range
     const endDate = new Date(latestDate);
     endDate.setDate(endDate.getDate() - 30); // 1 month before latest date
     
@@ -286,11 +303,11 @@ export default function SIPAnalysisPage() {
                 Analysis Configuration
               </CardTitle>
               <CardDescription>
-                Configure parameters for SIP analysis and bulk investment calculations.
+                Configure parameters for SIP analysis and bulk investment calculations. Select date range to analyze historical performance.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label htmlFor="fund">Selected Fund</Label>
                   <div className="p-2 border rounded-md bg-gray-50 min-h-[40px] flex items-center">
@@ -321,6 +338,18 @@ export default function SIPAnalysisPage() {
                     onChange={(e) => setBulkAmount(Number(e.target.value))}
                     min="1000"
                     step="1000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dateRange">Date Range (Days)</Label>
+                  <Input
+                    id="dateRange"
+                    type="number"
+                    value={dateRangeDays}
+                    onChange={(e) => setDateRangeDays(Number(e.target.value))}
+                    min="30"
+                    max="1825"
+                    step="30"
                   />
                 </div>
               </div>
@@ -417,7 +446,7 @@ export default function SIPAnalysisPage() {
                 <CardHeader>
                   <CardTitle>Bulk Investment Analysis</CardTitle>
                   <CardDescription>
-                    Historical performance of lumpsum investments over the last year.
+                    Historical performance of lumpsum investments over the selected date range.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
