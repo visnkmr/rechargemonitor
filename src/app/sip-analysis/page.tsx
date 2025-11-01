@@ -19,6 +19,7 @@ interface SIPResult {
   totalInvested: number;
   currentValue: number;
   avgNav: number;
+  todayNav: number;
   gain: number;
   gainPct: number;
 }
@@ -79,76 +80,94 @@ export default function SIPAnalysisPage() {
     setError("");
 
     try {
-      // Simulate fetching NAV data (in real app, this would be an API call)
-      const mockNavData = generateMockNavData();
+      // Fetch real NAV data from MF API
+      const navData = await fetchNavData(selectedFund);
       
       const results: { [key: string]: SIPResult } = {};
-      const latestNav = mockNavData[mockNavData.length - 1].nav;
+      const latestNav = navData[navData.length - 1].nav;
+      
+      // Store latestNav globally for use in display
+      (window as any).latestNav = latestNav;
+      
+      // Create NAV lookup for consistent data across all strategies
+      const navLookup: { [key: string]: number } = {};
+      navData.forEach(item => {
+        navLookup[item.date] = item.nav;
+      });
       
       // Daily SIP
-      results.daily = calculateSIPResult(mockNavData.map(d => d.date), investmentAmount, latestNav);
+      results.daily = calculateSIPResult(navData.map(d => d.date), investmentAmount, latestNav, navLookup);
       
       // Weekly SIP
-      const weeklyDates = generateWeeklyDates(mockNavData);
-      results.weekly = calculateSIPResult(weeklyDates, investmentAmount, latestNav);
+      const weeklyDates = generateWeeklyDates(navData);
+      results.weekly = calculateSIPResult(weeklyDates, investmentAmount, latestNav, navLookup);
       
       // Day of month SIPs
       for (let day = 1; day <= 31; day++) {
-        const dayDates = mockNavData
+        const dayDates = navData
           .filter(d => new Date(d.date).getDate() === day)
           .map(d => d.date);
         
         if (dayDates.length > 0) {
           const dayLabel = `${day}${getDaySuffix(day)} of month`;
-          results[dayLabel] = calculateSIPResult(dayDates, investmentAmount, latestNav);
+          results[dayLabel] = calculateSIPResult(dayDates, investmentAmount, latestNav, navLookup);
         }
       }
       
       // Day of week SIPs
       const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
       for (let wd = 0; wd < 7; wd++) {
-        const dayDates = mockNavData
+        const dayDates = navData
           .filter(d => new Date(d.date).getDay() === wd)
           .map(d => d.date);
         
         if (dayDates.length > 0) {
-          results[`Every ${weekdayNames[wd]}`] = calculateSIPResult(dayDates, investmentAmount, latestNav);
+          results[`Every ${weekdayNames[wd]}`] = calculateSIPResult(dayDates, investmentAmount, latestNav, navLookup);
         }
       }
       
       setSipResults(results);
       
       // Bulk investment analysis
-      const bulkInvestmentResults = calculateBulkInvestments(mockNavData, bulkAmount, latestNav);
+      const bulkInvestmentResults = calculateBulkInvestments(navData, bulkAmount, latestNav);
       setBulkResults(bulkInvestmentResults);
       
     } catch (err) {
-      setError("Failed to calculate SIP analysis. Please try again.");
+      setError("Failed to fetch NAV data or calculate SIP analysis. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockNavData = () => {
-    const data = [];
-    const today = new Date();
-    let baseNav = 100;
+  const fetchNavData = async (schemeCode: string) => {
+    const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
     
-    for (let i = 365; i >= 30; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      
-      // Simulate NAV fluctuations
-      baseNav = baseNav + (Math.random() - 0.5) * 2;
-      baseNav = Math.max(baseNav, 50); // Minimum NAV
-      
-      data.push({
-        date: date.toISOString().split('T')[0],
-        nav: baseNav
-      });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch NAV data: ${response.statusText}`);
     }
     
-    return data;
+    const data = await response.json();
+    
+    if (data.status !== 'SUCCESS') {
+      throw new Error(`API returned error: ${data.message || 'Unknown error'}`);
+    }
+    
+    // Parse the NAV data from the API response
+    // The API returns data in format: { "date": "dd-mm-yyyy", "nav": "123.45" }
+    // Convert date format from dd-mm-yyyy to yyyy-mm-dd for proper JavaScript Date parsing
+    const navData = data.data.map((item: any) => {
+      const [day, month, year] = item.date.split('-');
+      const formattedDate = `${year}-${month}-${day}`;
+      return {
+        date: formattedDate,
+        nav: parseFloat(item.nav)
+      };
+    });
+    
+    // Sort by date to ensure chronological order
+    navData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    return navData;
   };
 
   const generateWeeklyDates = (navData: any[]) => {
@@ -156,7 +175,11 @@ export default function SIPAnalysisPage() {
     const firstDate = new Date(navData[0].date);
     const lastDate = new Date(navData[navData.length - 1].date);
     
-    for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 7)) {
+    // Generate every 7 days from first date (matching Python logic)
+    const totalDays = Math.floor((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+    for (let i = 0; i <= totalDays / 7; i++) {
+      const d = new Date(firstDate);
+      d.setDate(d.getDate() + (7 * i));
       dates.push(d.toISOString().split('T')[0]);
     }
     
@@ -170,21 +193,15 @@ export default function SIPAnalysisPage() {
     return "th";
   };
 
-  const calculateSIPResult = (dates: string[], amount: number, latestNav: number): SIPResult => {
+  const calculateSIPResult = (dates: string[], amount: number, latestNav: number, navLookup: { [key: string]: number }): SIPResult => {
     let totalInvested = 0;
     let totalUnits = 0;
     let totalNavCost = 0;
     let installments = 0;
     
-    // Mock NAV lookup (in real app, this would use actual data)
-    const mockNavs: { [key: string]: number } = {};
     dates.forEach(date => {
-      mockNavs[date] = 100 + Math.random() * 50; // Random NAV between 100-150
-    });
-    
-    dates.forEach(date => {
-      if (mockNavs[date]) {
-        const nav = mockNavs[date];
+      if (navLookup[date]) {
+        const nav = navLookup[date];
         const units = amount / nav;
         totalUnits += units;
         totalInvested += amount;
@@ -193,6 +210,7 @@ export default function SIPAnalysisPage() {
       }
     });
     
+    // Average NAV = Total NAV Cost / Total Units (matching Python formula)
     const avgNav = totalUnits > 0 ? totalNavCost / totalUnits : 0;
     const currentValue = totalUnits * latestNav;
     const gain = currentValue - totalInvested;
@@ -203,6 +221,7 @@ export default function SIPAnalysisPage() {
       totalInvested,
       currentValue,
       avgNav,
+      todayNav: latestNav,
       gain,
       gainPct
     };
@@ -210,9 +229,11 @@ export default function SIPAnalysisPage() {
 
   const calculateBulkInvestments = (navData: any[], amount: number, latestNav: number): BulkInvestmentResult[] => {
     const results: BulkInvestmentResult[] = [];
-    const startDate = new Date(navData[0].date);
-    const endDate = new Date(navData[navData.length - 1].date);
-    endDate.setMonth(endDate.getMonth() - 1);
+    const latestDate = new Date(navData[navData.length - 1].date);
+    const startDate = new Date(latestDate);
+    startDate.setDate(startDate.getDate() - 365); // 1 year before latest date
+    const endDate = new Date(latestDate);
+    endDate.setDate(endDate.getDate() - 30); // 1 month before latest date
     
     navData.forEach(item => {
       const itemDate = new Date(item.date);
@@ -357,7 +378,7 @@ export default function SIPAnalysisPage() {
                             {result.gainPct.toFixed(2)}%
                           </Badge>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
                           <div>
                             <div className="text-muted-foreground">Installments</div>
                             <div className="font-medium">{result.installments}</div>
@@ -369,6 +390,14 @@ export default function SIPAnalysisPage() {
                           <div>
                             <div className="text-muted-foreground">Current Value</div>
                             <div className="font-medium">₹{result.currentValue.toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Avg NAV</div>
+                            <div className="font-medium">₹{result.avgNav.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Today NAV</div>
+                            <div className="font-medium">₹{result.todayNav.toFixed(2)}</div>
                           </div>
                           <div>
                             <div className="text-muted-foreground">Gain/Loss</div>
