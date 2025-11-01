@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Search, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
-import { MFAPISearchResult } from "@/lib/types";
+import { MutualFundWithHistory } from "@/lib/types";
 
 interface SIPResult {
   installments: number;
@@ -43,11 +42,12 @@ export default function SIPAnalysisPage() {
   const [investmentAmount, setInvestmentAmount] = useState<number>(1000);
   const [bulkAmount, setBulkAmount] = useState<number>(50000);
   const [dateRangeDays, setDateRangeDays] = useState<number>(365);
+  const [bulkDateRangeDays, setBulkDateRangeDays] = useState<number>(365);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [sipResults, setSipResults] = useState<{ [key: string]: SIPResult }>({});
   const [bulkResults, setBulkResults] = useState<BulkInvestmentResult[]>([]);
-  const [searchSelectedFunds, setSearchSelectedFunds] = useState<any[]>([]);
+  const [searchSelectedFunds, setSearchSelectedFunds] = useState<MutualFundWithHistory[]>([]);
 
   const {
     searchResults,
@@ -93,7 +93,7 @@ export default function SIPAnalysisPage() {
       const latestNav = navData[navData.length - 1].nav;
       
       // Store latestNav globally for use in display
-      (window as any).latestNav = latestNav;
+      (window as { latestNav?: number }).latestNav = latestNav;
       
       // Create NAV lookup for consistent data across all strategies
       const navLookup: { [key: string]: number } = {};
@@ -138,7 +138,7 @@ export default function SIPAnalysisPage() {
       const bulkInvestmentResults = calculateBulkInvestments(navData, bulkAmount, latestNav);
       setBulkResults(bulkInvestmentResults);
       
-    } catch (err) {
+    } catch {
       setError("Failed to fetch NAV data or calculate SIP analysis. Please try again.");
     } finally {
       setLoading(false);
@@ -248,13 +248,11 @@ export default function SIPAnalysisPage() {
     const results: BulkInvestmentResult[] = [];
     const latestDate = new Date(navData[navData.length - 1].date);
     const startDate = new Date(latestDate);
-    startDate.setDate(startDate.getDate() - dateRangeDays); // Use selected date range
-    const endDate = new Date(latestDate);
-    endDate.setDate(endDate.getDate() - 30); // 1 month before latest date
+    startDate.setDate(startDate.getDate() - bulkDateRangeDays); // Use bulk investment date range
     
     navData.forEach(item => {
       const itemDate = new Date(item.date);
-      if (itemDate >= startDate && itemDate <= endDate) {
+      if (itemDate >= startDate && itemDate < latestDate) {
         const units = amount / item.nav;
         const currentValue = units * latestNav;
         const gain = currentValue - amount;
@@ -271,7 +269,7 @@ export default function SIPAnalysisPage() {
       }
     });
     
-    return results.slice(-10); // Show last 10 results
+    return results; // Show all results within the date range
   };
 
   return (
@@ -303,11 +301,11 @@ export default function SIPAnalysisPage() {
                 Analysis Configuration
               </CardTitle>
               <CardDescription>
-                Configure parameters for SIP analysis and bulk investment calculations. Select date range to analyze historical performance.
+                Configure parameters for SIP analysis and bulk investment calculations. Set separate date ranges for SIP strategies and bulk investment analysis.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fund">Selected Fund</Label>
                   <div className="p-2 border rounded-md bg-gray-50 min-h-[40px] flex items-center">
@@ -329,6 +327,9 @@ export default function SIPAnalysisPage() {
                     step="100"
                   />
                 </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="bulk">Bulk Investment (₹)</Label>
                   <Input
@@ -341,12 +342,24 @@ export default function SIPAnalysisPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="dateRange">Date Range (Days)</Label>
+                  <Label htmlFor="dateRange">SIP Analysis Range (Days)</Label>
                   <Input
                     id="dateRange"
                     type="number"
                     value={dateRangeDays}
                     onChange={(e) => setDateRangeDays(Number(e.target.value))}
+                    min="30"
+                    max="1825"
+                    step="30"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bulkDateRange">Bulk Investment Range (Days)</Label>
+                  <Input
+                    id="bulkDateRange"
+                    type="number"
+                    value={bulkDateRangeDays}
+                    onChange={(e) => setBulkDateRangeDays(Number(e.target.value))}
                     min="30"
                     max="1825"
                     step="30"
@@ -446,7 +459,7 @@ export default function SIPAnalysisPage() {
                 <CardHeader>
                   <CardTitle>Bulk Investment Analysis</CardTitle>
                   <CardDescription>
-                    Historical performance of lumpsum investments over the selected date range.
+                    Historical performance of lumpsum investments over the selected bulk investment date range.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
