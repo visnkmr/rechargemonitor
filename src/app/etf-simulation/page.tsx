@@ -115,7 +115,7 @@ export default function ETFSimulationPage() {
     return selectedETFs.reduce((sum, etf) => sum + etf.weightage, 0);
   };
 
-  const fetchNavData = async (schemeCode: number, days: number = 365): Promise<NavDataItem[]> => {
+  const fetchNavData = async (schemeCode: number, days: number = 365, skipLastDays: number = 0): Promise<NavDataItem[]> => {
     const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
     
     if (!response.ok) {
@@ -143,9 +143,14 @@ export default function ETFSimulationPage() {
     const cutoffDate = new Date(latestDate);
     cutoffDate.setDate(cutoffDate.getDate() - days);
     
-    const filteredNavData = navData.filter((item: NavDataItem) => 
+    let filteredNavData = navData.filter((item: NavDataItem) => 
       new Date(item.date) >= cutoffDate
     );
+
+    // Apply skip last days - remove from the end
+    if (skipLastDays > 0 && filteredNavData.length > skipLastDays) {
+      filteredNavData = filteredNavData.slice(0, -skipLastDays);
+    }
 
     // Calculate daily changes
     return filteredNavData.map((item: NavDataItem, index: number) => ({
@@ -174,7 +179,7 @@ export default function ETFSimulationPage() {
       
       // Fetch NAV data for all selected ETFs
       for (const etf of selectedETFs) {
-        allNavData[etf.schemeCode] = await fetchNavData(etf.schemeCode, timeFrameDays);
+        allNavData[etf.schemeCode] = await fetchNavData(etf.schemeCode, timeFrameDays, skipLastDays);
       }
 
       const simulationResults: SimulationResult[] = [];
@@ -229,10 +234,11 @@ export default function ETFSimulationPage() {
           date: new Date(purchase.date)
         }));
 
-        // Add final value as positive cash flow (skip last days if specified)
-        const endDate = new Date(navData[navData.length - 1 - skipLastDays].date);
+        // Add final value as positive cash flow (using the last available date after skip)
+        const finalNavIndex = navData.length - 1;
+        const endDate = new Date(navData[finalNavIndex].date);
         cashFlows.push({
-          amount: totalUnits * navData[navData.length - 1 - skipLastDays].nav,
+          amount: totalUnits * navData[finalNavIndex].nav,
           date: endDate
         });
 
@@ -282,12 +288,12 @@ export default function ETFSimulationPage() {
       });
     });
     
-    // Add final value (positive cash flow)
+    // Add final value (positive cash flow) - use latest date
     if (totalCashFlows.length > 0) {
-      const earliestDate = new Date(Math.min(...totalCashFlows.map(cf => cf.date.getTime())));
+      const latestDate = new Date(Math.max(...totalCashFlows.map(cf => cf.date.getTime())));
       totalCashFlows.push({
         amount: getTotalCurrentValue(),
-        date: earliestDate
+        date: latestDate
       });
     }
     
