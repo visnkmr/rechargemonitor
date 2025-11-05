@@ -12,6 +12,7 @@ import Link from "next/link";
 import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
 import { MutualFundWithHistory, MFAPIDataPoint } from "@/lib/types";
+import { calculateXIRR } from "@/lib/financial-utils";
 
 interface SelectedETF {
   schemeCode: number;
@@ -40,6 +41,7 @@ interface SimulationResult {
   investmentDays: number;
   avgNav: number;
   purchases: PurchaseRecord[];
+  xirr: number;
 }
 
 interface NavDataItem {
@@ -52,6 +54,7 @@ export default function ETFSimulationPage() {
   const [selectedETFs, setSelectedETFs] = useState<SelectedETF[]>([]);
   const [totalAmount, setTotalAmount] = useState<number>(10000);
   const [timeFrameDays, setTimeFrameDays] = useState<number>(365);
+  const [skipLastDays, setSkipLastDays] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [results, setResults] = useState<SimulationResult[]>([]);
@@ -220,6 +223,21 @@ export default function ETFSimulationPage() {
         const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
         const avgNav = totalUnits > 0 ? totalInvested / totalUnits : 0;
 
+        // Calculate XIRR for this ETF
+        const cashFlows = purchases.map(purchase => ({
+          amount: -purchase.amount,
+          date: new Date(purchase.date)
+        }));
+
+        // Add final value as positive cash flow (skip last days if specified)
+        const endDate = new Date(navData[navData.length - 1 - skipLastDays].date);
+        cashFlows.push({
+          amount: totalUnits * navData[navData.length - 1 - skipLastDays].nav,
+          date: endDate
+        });
+
+        const xirr = cashFlows.length > 1 ? calculateXIRR(cashFlows) : 0;
+
         simulationResults.push({
           etfCode: etf.schemeCode,
           etfName: etf.schemeName,
@@ -232,7 +250,8 @@ export default function ETFSimulationPage() {
           skippedDays,
           investmentDays: navData.length - 1 - skippedDays,
           avgNav,
-          purchases
+          purchases,
+          xirr
         });
       }
 
@@ -249,6 +268,31 @@ export default function ETFSimulationPage() {
   const getTotalCurrentValue = () => results.reduce((sum, r) => sum + r.currentValue, 0);
   const getTotalGain = () => getTotalCurrentValue() - getTotalInvested();
   const getTotalGainPct = () => getTotalInvested() > 0 ? (getTotalGain() / getTotalInvested()) * 100 : 0;
+  const getTotalXIRR = () => {
+    if (results.length === 0) return 0;
+    const totalCashFlows: { amount: number; date: Date }[] = [];
+    
+    // Add all investments (negative cash flows)
+    results.forEach(result => {
+      result.purchases.forEach(purchase => {
+        totalCashFlows.push({
+          amount: -purchase.amount,
+          date: new Date(purchase.date)
+        });
+      });
+    });
+    
+    // Add final value (positive cash flow)
+    if (totalCashFlows.length > 0) {
+      const earliestDate = new Date(Math.min(...totalCashFlows.map(cf => cf.date.getTime())));
+      totalCashFlows.push({
+        amount: getTotalCurrentValue(),
+        date: earliestDate
+      });
+    }
+    
+    return totalCashFlows.length > 1 ? calculateXIRR(totalCashFlows) : 0;
+  };
 
   const toggleETFExpansion = (etfCode: number) => {
     setExpandedETFs(prev => {
@@ -295,7 +339,7 @@ export default function ETFSimulationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="totalAmount">Total Investment Amount (₹)</Label>
                   <Input
@@ -317,6 +361,19 @@ export default function ETFSimulationPage() {
                     min="30"
                     max="1825"
                     step="30"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="skipLastDays">Skip Last Days</Label>
+                  <Input
+                    id="skipLastDays"
+                    type="number"
+                    value={skipLastDays}
+                    onChange={(e) => setSkipLastDays(Number(e.target.value))}
+                    min="0"
+                    max="30"
+                    step="1"
+                    placeholder="Days to skip from end"
                   />
                 </div>
               </div>
@@ -406,7 +463,7 @@ export default function ETFSimulationPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
                       <div className="text-muted-foreground">Total Invested</div>
                       <div className="font-medium">₹{getTotalInvested().toLocaleString()}</div>
@@ -425,6 +482,12 @@ export default function ETFSimulationPage() {
                       <div className="text-muted-foreground">Return %</div>
                       <Badge variant={getTotalGain() >= 0 ? "default" : "destructive"}>
                         {getTotalGainPct().toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Total XIRR %</div>
+                      <Badge variant={getTotalXIRR() >= 0 ? "default" : "destructive"}>
+                        {getTotalXIRR().toFixed(2)}%
                       </Badge>
                     </div>
                   </div>
@@ -451,6 +514,7 @@ export default function ETFSimulationPage() {
                         <TableHead>Current Value</TableHead>
                         <TableHead>Gain/Loss</TableHead>
                         <TableHead>Return %</TableHead>
+                        <TableHead>XIRR %</TableHead>
                         <TableHead>Investment Days</TableHead>
                         <TableHead>Skipped Days</TableHead>
                         <TableHead>Actions</TableHead>
@@ -471,6 +535,11 @@ export default function ETFSimulationPage() {
                           <TableCell>
                             <Badge variant={result.gainPct >= 0 ? "default" : "destructive"}>
                               {result.gainPct.toFixed(2)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={result.xirr >= 0 ? "default" : "destructive"}>
+                              {result.xirr.toFixed(2)}%
                             </Badge>
                           </TableCell>
                           <TableCell>{result.investmentDays}</TableCell>
