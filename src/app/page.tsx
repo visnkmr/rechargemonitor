@@ -235,6 +235,15 @@ export default function Home() {
        bgColor: "bg-orange-50",
      },
      {
+       title: "ETF Simulation",
+       description: "Simulate ETF investment strategies with negative-day purchasing",
+       href: "/etf-simulation",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },
+     {
        title: "Export/Import",
        description: "Backup and restore your data",
        href: "/export",
