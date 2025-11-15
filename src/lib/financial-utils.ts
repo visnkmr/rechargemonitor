@@ -371,3 +371,148 @@ export async function fetchMutualFundData(schemeCode: number): Promise<MutualFun
     return null;
   }
 }
+
+/**
+ * Get stock price for a specific date from historical prices
+ */
+export function getStockPriceForDate(historicalPrices: { date: Date; price: number }[], targetDate: Date): number | null {
+  // Find the closest date (on or before target date)
+  const sortedPrices = historicalPrices.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  for (const price of sortedPrices) {
+    if (price.date <= targetDate) {
+      return price.price;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Calculate various time period changes for a stock
+ */
+export function calculateStockChanges(historicalPrices: { date: Date; price: number }[]) {
+  if (historicalPrices.length === 0) {
+    return {
+      day1: 0,
+      week1: 0,
+      month1: 0,
+      month3: 0,
+      month6: 0,
+      year1: 0
+    };
+  }
+
+  const sortedPrices = historicalPrices.sort((a, b) => b.date.getTime() - a.date.getTime());
+  const latestPrice = sortedPrices[0].price;
+  const latestDate = sortedPrices[0].date;
+
+  // Calculate target dates
+  const day1Date = new Date(latestDate);
+  day1Date.setDate(day1Date.getDate() - 1);
+
+  const week1Date = new Date(latestDate);
+  week1Date.setDate(week1Date.getDate() - 7);
+
+  const month1Date = new Date(latestDate);
+  month1Date.setMonth(month1Date.getMonth() - 1);
+
+  const month3Date = new Date(latestDate);
+  month3Date.setMonth(month3Date.getMonth() - 3);
+
+  const month6Date = new Date(latestDate);
+  month6Date.setMonth(month6Date.getMonth() - 6);
+
+  const year1Date = new Date(latestDate);
+  year1Date.setFullYear(year1Date.getFullYear() - 1);
+
+  // Get price values for each period
+  const day1Price = getStockPriceForDate(sortedPrices, day1Date);
+  const week1Price = getStockPriceForDate(sortedPrices, week1Date);
+  const month1Price = getStockPriceForDate(sortedPrices, month1Date);
+  const month3Price = getStockPriceForDate(sortedPrices, month3Date);
+  const month6Price = getStockPriceForDate(sortedPrices, month6Date);
+  const year1Price = getStockPriceForDate(sortedPrices, year1Date);
+
+  return {
+    day1: day1Price ? calculatePercentageChange(latestPrice, day1Price) : 0,
+    week1: week1Price ? calculatePercentageChange(latestPrice, week1Price) : 0,
+    month1: month1Price ? calculatePercentageChange(latestPrice, month1Price) : 0,
+    month3: month3Price ? calculatePercentageChange(latestPrice, month3Price) : 0,
+    month6: month6Price ? calculatePercentageChange(latestPrice, month6Price) : 0,
+    year1: year1Price ? calculatePercentageChange(latestPrice, year1Price) : 0
+  };
+}
+
+/**
+ * Calculate volatility (standard deviation of daily returns) for a given period
+ */
+export function calculateVolatility(historicalPrices: { date: Date; price: number }[], days: number): number {
+  if (historicalPrices.length < days + 1) return 0;
+
+  const sortedPrices = historicalPrices.sort((a, b) => a.date.getTime() - b.date.getTime());
+  const recentPrices = sortedPrices.slice(-days - 1);
+
+  if (recentPrices.length < 2) return 0;
+
+  // Calculate daily returns
+  const returns: number[] = [];
+  for (let i = 1; i < recentPrices.length; i++) {
+    const returnRate = (recentPrices[i].price - recentPrices[i - 1].price) / recentPrices[i - 1].price;
+    returns.push(returnRate);
+  }
+
+  if (returns.length === 0) return 0;
+
+  // Calculate mean
+  const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+
+  // Calculate variance
+  const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / returns.length;
+
+  // Return standard deviation (volatility) as percentage
+  return Math.sqrt(variance) * 100;
+}
+
+/**
+ * Calculate average volume for a given period
+ */
+export function calculateAverageVolume(volume: { date: Date; volume: number }[], days: number): number {
+  if (volume.length === 0) return 0;
+
+  const sortedVolume = volume.sort((a, b) => b.date.getTime() - a.date.getTime());
+  const recentVolume = sortedVolume.slice(0, days);
+
+  if (recentVolume.length === 0) return 0;
+
+  const totalVolume = recentVolume.reduce((sum, vol) => sum + vol.volume, 0);
+  return totalVolume / recentVolume.length;
+}
+
+/**
+ * Calculate comprehensive volatility statistics for different time periods
+ */
+export function calculateVolatilityStats(historicalPrices: { date: Date; price: number }[]) {
+  return {
+    day2: calculateVolatility(historicalPrices, 2),
+    day3: calculateVolatility(historicalPrices, 3),
+    day4: calculateVolatility(historicalPrices, 4),
+    day5: calculateVolatility(historicalPrices, 5),
+    week2: calculateVolatility(historicalPrices, 14)
+  };
+}
+
+/**
+ * Calculate comprehensive volume statistics for different time periods
+ */
+export function calculateVolumeStats(volume: { date: Date; volume: number }[]) {
+  return {
+    day1: calculateAverageVolume(volume, 1),
+    day2: calculateAverageVolume(volume, 2),
+    day3: calculateAverageVolume(volume, 3),
+    day4: calculateAverageVolume(volume, 4),
+    day5: calculateAverageVolume(volume, 5),
+    week2: calculateAverageVolume(volume, 14),
+    month: calculateAverageVolume(volume, 30)
+  };
+}

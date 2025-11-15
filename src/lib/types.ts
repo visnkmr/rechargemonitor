@@ -160,3 +160,44 @@ export interface MFPurchaseFormData {
   purchaseDate: Date;
   amount: number;
 }
+
+// Stock API response types
+export interface StockSearchResult {
+  id: number;
+  name: string;
+  url: string;
+}
+
+export interface StockPrice {
+  date: Date;
+  price: number;
+}
+
+export interface StockVolume {
+  date: Date;
+  volume: number;
+}
+
+export interface StockDMA {
+  date: Date;
+  dma: number;
+}
+
+export interface Stock {
+  id: number;
+  name: string;
+  currentPrice: number;
+  priceDate: Date;
+}
+
+export interface StockWithHistory extends Stock {
+  historicalPrices: StockPrice[];
+  volume: StockVolume[];
+  dma50: StockDMA[];
+  dma200: StockDMA[];
+}
+
+export interface StockWatchlistItem {
+  id: number;
+  addedAt: Date;
+}
