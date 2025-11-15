@@ -163,6 +163,15 @@ export default function Home() {
 
   const tools = [
     {
+      title: "Stocks",
+      description: "Search and analyze Indian stocks with technical indicators",
+      href: "/stocks",
+      icon: TrendingUp,
+      stats: "Search & Analyze",
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+    },
+    {
       title: "Mutual Funds",
       description: "Search and analyze mutual fund performance with XIRR",
       href: "/mutual-funds",
