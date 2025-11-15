@@ -199,5 +199,6 @@ export interface StockWithHistory extends Stock {
 
 export interface StockWatchlistItem {
   id: number;
+  name: string;
   addedAt: Date;
 }

@@ -19,8 +19,9 @@ export function useStocks() {
     if (savedWatchlist) {
       try {
         const parsed = JSON.parse(savedWatchlist);
-        setWatchlist(parsed.map((item: StockWatchlistItem & { addedAt: string }) => ({
-          ...item,
+        setWatchlist(parsed.map((item: StockWatchlistItem & { addedAt: string; name?: string }) => ({
+          id: item.id,
+          name: item.name || `Stock ${item.id}`, // Backward compatibility
           addedAt: new Date(item.addedAt)
         })));
       } catch (error) {
@@ -55,8 +56,9 @@ export function useStocks() {
         throw new Error('Invalid stock data format');
       }
 
-      // Get stock name from search results or use a default
-      const stockName = searchResults.find(s => s.id === stockId)?.name || `Stock ${stockId}`;
+      // Get stock name from watchlist first, then search results, then fallback
+      const watchlistItem = watchlist.find(item => item.id === stockId);
+      const stockName = watchlistItem?.name || searchResults.find(s => s.id === stockId)?.name || `Stock ${stockId}`;
 
       const stockWithHistory: StockWithHistory = {
         id: stockId,
@@ -88,32 +90,33 @@ export function useStocks() {
     }
   }, [searchResults]);
 
-  const loadWatchlistStocks = useCallback(async () => {
-    setLoadingWatchlist(true);
-    try {
-      const stocks: StockWithHistory[] = [];
-      for (const item of watchlist) {
-        const stockData = await fetchStockData(item.id);
-        if (stockData) {
-          stocks.push(stockData);
-        }
-      }
-      setWatchlistStocks(stocks);
-    } catch (error) {
-      console.error('Error loading watchlist stocks:', error);
-    } finally {
-      setLoadingWatchlist(false);
-    }
-  }, [watchlist, fetchStockData]);
+
 
   // Load watchlist stocks whenever watchlist changes
   useEffect(() => {
     if (watchlist.length > 0) {
-      loadWatchlistStocks();
+      setLoadingWatchlist(true);
+      const loadStocks = async () => {
+        try {
+          const stocks: StockWithHistory[] = [];
+          for (const item of watchlist) {
+            const stockData = await fetchStockData(item.id);
+            if (stockData) {
+              stocks.push(stockData);
+            }
+          }
+          setWatchlistStocks(stocks);
+        } catch (error) {
+          console.error('Error loading watchlist stocks:', error);
+        } finally {
+          setLoadingWatchlist(false);
+        }
+      };
+      loadStocks();
     } else {
       setWatchlistStocks([]);
     }
-  }, [watchlist, loadWatchlistStocks]);
+  }, [watchlist, fetchStockData]);
 
   const searchStocks = async (query: string) => {
     if (!query.trim()) return;
@@ -177,8 +180,10 @@ export function useStocks() {
 
   const addToWatchlist = (stockId: number) => {
     if (!isInWatchlist(stockId)) {
+      const stockName = searchResults.find(s => s.id === stockId)?.name || `Stock ${stockId}`;
       const newItem: StockWatchlistItem = {
         id: stockId,
+        name: stockName,
         addedAt: new Date()
       };
       setWatchlist([...watchlist, newItem]);
