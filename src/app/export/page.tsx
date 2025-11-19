@@ -13,6 +13,8 @@ import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalcu
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
 import { Bill } from "@/hooks/use-bills";
+import { LoginButton } from "@/components/login-button";
+import { SyncManager } from "@/components/sync-manager";
 
 interface ExportData {
   recharges?: Recharge[];
@@ -144,7 +146,7 @@ export default function ExportPage() {
 
       // Create and download JSON file
       const dataStr = JSON.stringify(exportData, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
       const exportFileDefaultName = `recharge-monitor-backup-${new Date().toISOString().split('T')[0]}.json`;
 
@@ -583,18 +585,22 @@ export default function ExportPage() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
         <header className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-             <Link href="/">
-               <Button variant="outline" size="sm">
-                 <ArrowLeft className="h-4 w-4 mr-2" />
-                 Back to Dashboard
-               </Button>
-             </Link>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </div>
+            <LoginButton />
           </div>
           <h1 className="text-4xl font-bold">Export / Import Data</h1>
-            <p className="text-muted-foreground">
-              Transfer your financial data (recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data) between devices.
-            </p>
+          <p className="text-muted-foreground mb-4">
+            Transfer your financial data (recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data) between devices.
+          </p>
+          <SyncManager />
         </header>
 
         {importStatus !== 'idle' && (
@@ -621,143 +627,143 @@ export default function ExportPage() {
                 Download all your data as a JSON file to backup or transfer to another device.
               </CardDescription>
             </CardHeader>
-             <CardContent>
-               <div className="space-y-4">
-                 <div>
-                   <Label className="text-sm font-medium">Select data to export:</Label>
-                   <div className="grid grid-cols-2 gap-2 mt-2">
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-recharges"
-                         checked={exportSelections.recharges}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, recharges: checked }))}
-                       />
-                       <Label htmlFor="export-recharges" className="text-sm">Recharges</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-sip"
-                         checked={exportSelections.sipCalculations}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, sipCalculations: checked }))}
-                       />
-                       <Label htmlFor="export-sip" className="text-sm">SIP Calculations</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-fd"
-                         checked={exportSelections.fdCalculations}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, fdCalculations: checked }))}
-                       />
-                       <Label htmlFor="export-fd" className="text-sm">FD Calculations</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-loan"
-                         checked={exportSelections.loanCalculations}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, loanCalculations: checked }))}
-                       />
-                       <Label htmlFor="export-loan" className="text-sm">Loan Calculations</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-bills"
-                         checked={exportSelections.bills}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, bills: checked }))}
-                       />
-                       <Label htmlFor="export-bills" className="text-sm">Bills</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-expenses"
-                         checked={exportSelections.expenses}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, expenses: checked }))}
-                       />
-                       <Label htmlFor="export-expenses" className="text-sm">Expenses</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-xirr"
-                         checked={exportSelections.xirrCalculations}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, xirrCalculations: checked }))}
-                       />
-                       <Label htmlFor="export-xirr" className="text-sm">XIRR Calculations</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-mf-watchlist"
-                         checked={exportSelections.mfWatchlist}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfWatchlist: checked }))}
-                       />
-                       <Label htmlFor="export-mf-watchlist" className="text-sm">MF Watchlist</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-mf-purchases"
-                         checked={exportSelections.mfPurchases}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfPurchases: checked }))}
-                       />
-                       <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
-                     </div>
-                   </div>
-                 </div>
-                 <div className="flex gap-2">
-                   <Button onClick={exportData} className="flex-1">
-                     <Download className="h-4 w-4 mr-2" />
-                     Export Selected Data
-                   </Button>
-                   <Button
-                     variant="outline"
-                     onClick={() => {
-                       setShowExportText(!showExportText);
-                     }}
-                   >
-                     {showExportText ? (
-                       <>
-                         <EyeOff className="h-4 w-4 mr-2" />
-                         Hide Text
-                       </>
-                     ) : (
-                       <>
-                         <Eye className="h-4 w-4 mr-2" />
-                         Show Text
-                       </>
-                     )}
-                   </Button>
-                 </div>
-                 <p className="text-xs text-muted-foreground">
-                   Only selected data types will be included in the export.
-                 </p>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Select data to export:</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-recharges"
+                        checked={exportSelections.recharges}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, recharges: checked }))}
+                      />
+                      <Label htmlFor="export-recharges" className="text-sm">Recharges</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-sip"
+                        checked={exportSelections.sipCalculations}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, sipCalculations: checked }))}
+                      />
+                      <Label htmlFor="export-sip" className="text-sm">SIP Calculations</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-fd"
+                        checked={exportSelections.fdCalculations}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, fdCalculations: checked }))}
+                      />
+                      <Label htmlFor="export-fd" className="text-sm">FD Calculations</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-loan"
+                        checked={exportSelections.loanCalculations}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, loanCalculations: checked }))}
+                      />
+                      <Label htmlFor="export-loan" className="text-sm">Loan Calculations</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-bills"
+                        checked={exportSelections.bills}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, bills: checked }))}
+                      />
+                      <Label htmlFor="export-bills" className="text-sm">Bills</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-expenses"
+                        checked={exportSelections.expenses}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, expenses: checked }))}
+                      />
+                      <Label htmlFor="export-expenses" className="text-sm">Expenses</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-xirr"
+                        checked={exportSelections.xirrCalculations}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, xirrCalculations: checked }))}
+                      />
+                      <Label htmlFor="export-xirr" className="text-sm">XIRR Calculations</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-mf-watchlist"
+                        checked={exportSelections.mfWatchlist}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfWatchlist: checked }))}
+                      />
+                      <Label htmlFor="export-mf-watchlist" className="text-sm">MF Watchlist</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="export-mf-purchases"
+                        checked={exportSelections.mfPurchases}
+                        onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfPurchases: checked }))}
+                      />
+                      <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={exportData} className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Selected Data
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowExportText(!showExportText);
+                    }}
+                  >
+                    {showExportText ? (
+                      <>
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        Hide Text
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Show Text
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Only selected data types will be included in the export.
+                </p>
 
-                 {showExportText && exportJsonText && (
-                   <div className="mt-4">
-                     <div className="flex justify-between items-center mb-2">
-                       <Label className="text-sm font-medium">Exported JSON Data</Label>
-                       <Button
-                         size="sm"
-                         variant="outline"
-                         onClick={() => {
-                           navigator.clipboard.writeText(exportJsonText);
-                           setImportStatus('success');
-                           setImportMessage('JSON data copied to clipboard!');
-                         }}
-                       >
-                         <Copy className="h-3 w-3 mr-2" />
-                         Copy
-                       </Button>
-                     </div>
-                     <textarea
-                       value={exportJsonText}
-                       readOnly
-                       className="w-full p-3 border border-gray-300 rounded-md text-sm font-mono min-h-[300px] resize-vertical"
-                       placeholder="Export data will appear here..."
-                     />
-                     <p className="text-xs text-muted-foreground mt-1">
-                       You can copy this JSON text and save it manually, or use it for importing on another device.
-                     </p>
-                   </div>
-                 )}
-               </div>
-             </CardContent>
+                {showExportText && exportJsonText && (
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <Label className="text-sm font-medium">Exported JSON Data</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(exportJsonText);
+                          setImportStatus('success');
+                          setImportMessage('JSON data copied to clipboard!');
+                        }}
+                      >
+                        <Copy className="h-3 w-3 mr-2" />
+                        Copy
+                      </Button>
+                    </div>
+                    <textarea
+                      value={exportJsonText}
+                      readOnly
+                      className="w-full p-3 border border-gray-300 rounded-md text-sm font-mono min-h-[300px] resize-vertical"
+                      placeholder="Export data will appear here..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      You can copy this JSON text and save it manually, or use it for importing on another device.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
           </Card>
 
           <Card>
@@ -847,9 +853,9 @@ export default function ExportPage() {
             >
               Clear All Data
             </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                This will permanently delete all recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data.
-              </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              This will permanently delete all recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data.
+            </p>
           </CardContent>
         </Card>
       </div>
