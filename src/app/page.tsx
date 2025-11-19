@@ -29,8 +29,17 @@ import { useBills } from "@/hooks/use-bills";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
+import { useUser } from "@auth0/nextjs-auth0/client";
+import { LoginButton } from "@/components/login-button";
 
 export default function Home() {
+  const { user, error, isLoading } = useUser();
+  if (user) {
+    console.log(user);
+  }
+  else {
+    console.log(error);
+  }
   const { recharges, toggleRecharge } = useRecharges();
   const { calculations: sipCalculations, toggleCalculation } = useSIPCalculations();
   const { calculations: fdCalculations } = useFDCalculations();
@@ -134,22 +143,22 @@ export default function Home() {
       color: "text-cyan-600",
       bgColor: "bg-cyan-50",
     },
-     {
-       title: "Bills",
-       value: bills.length,
-       description: "Recurring expenses",
-       icon: Receipt,
-       color: "text-teal-600",
-       bgColor: "bg-teal-50",
-     },
-     {
-       title: "Expenses",
-       value: expenses.length,
-       description: "Amortized one-time costs",
-       icon: Calculator,
-       color: "text-orange-600",
-       bgColor: "bg-orange-50",
-     },
+    {
+      title: "Bills",
+      value: bills.length,
+      description: "Recurring expenses",
+      icon: Receipt,
+      color: "text-teal-600",
+      bgColor: "bg-teal-50",
+    },
+    {
+      title: "Expenses",
+      value: expenses.length,
+      description: "Amortized one-time costs",
+      icon: Calculator,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+    },
 
     {
       title: "Monthly Spend",
@@ -234,37 +243,40 @@ export default function Home() {
       color: "text-teal-600",
       bgColor: "bg-teal-50",
     },
-     {
-       title: "Expense Amortization",
-       description: "Track one-time expenses and their amortized costs",
-       href: "/expenses",
-       icon: Calculator,
-       stats: `${expenses.length} expenses`,
-       color: "text-orange-600",
-       bgColor: "bg-orange-50",
-     },
-     {
-       title: "ETF Simulation",
-       description: "Simulate ETF investment strategies with negative-day purchasing",
-       href: "/etf-simulation",
-       icon: TrendingUp,
-       stats: "Strategy Tool",
-       color: "text-green-600",
-       bgColor: "bg-green-50",
-     },
-     {
-       title: "Export/Import",
-       description: "Backup and restore your data",
-       href: "/export",
-       icon: FileText,
-       stats: "Tools",
-       color: "text-gray-600",
-       bgColor: "bg-gray-50",
-     },
+    {
+      title: "Expense Amortization",
+      description: "Track one-time expenses and their amortized costs",
+      href: "/expenses",
+      icon: Calculator,
+      stats: `${expenses.length} expenses`,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+    },
+    {
+      title: "ETF Simulation",
+      description: "Simulate ETF investment strategies with negative-day purchasing",
+      href: "/etf-simulation",
+      icon: TrendingUp,
+      stats: "Strategy Tool",
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+    },
+    {
+      title: "Export/Import",
+      description: "Backup and restore your data",
+      href: "/export",
+      icon: FileText,
+      stats: "Tools",
+      color: "text-gray-600",
+      bgColor: "bg-gray-50",
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <div className="mx-auto max-w-7xl">
+        {/* <LoginButton /> */}
+      </div>
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <header className="mb-8">

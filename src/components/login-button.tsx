@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, Loader2 } from 'lucide-react';
 
 export function LoginButton() {
+    console.log('LoginButton');
     const { user, error, isLoading } = useUser();
 
     if (isLoading) {
@@ -17,6 +18,7 @@ export function LoginButton() {
     }
 
     if (error) {
+        console.log('LoginButton error', error);
         return <div className="text-red-500 text-sm">{error.message}</div>;
     }
 
