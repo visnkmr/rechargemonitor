@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff } from "lucide-react";
+import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
@@ -60,6 +60,43 @@ export default function ExportPage() {
   });
   const [showExportText, setShowExportText] = useState(false);
   const [exportJsonText, setExportJsonText] = useState('');
+  const [dataOverview, setDataOverview] = useState({
+    recharges: 0,
+    sipCalculations: 0,
+    fdCalculations: 0,
+    loanCalculations: 0,
+    bills: 0,
+    expenses: 0,
+    xirrCalculations: 0,
+    mfWatchlist: 0,
+    mfPurchases: 0,
+  });
+  const [showIndividualEntries, setShowIndividualEntries] = useState(false);
+  const [selectedDataType, setSelectedDataType] = useState<string>('recharges');
+  const [individualData, setIndividualData] = useState<any[]>([]);
+
+  // Load data overview from localStorage
+  useEffect(() => {
+    const loadDataOverview = () => {
+      try {
+        setDataOverview({
+          recharges: JSON.parse(localStorage.getItem('recharges') || '[]').length,
+          sipCalculations: JSON.parse(localStorage.getItem('sip-calculations') || '[]').length,
+          fdCalculations: JSON.parse(localStorage.getItem('fd-calculations') || '[]').length,
+          loanCalculations: JSON.parse(localStorage.getItem('loan-calculations') || '[]').length,
+          bills: JSON.parse(localStorage.getItem('bills') || '[]').length,
+          expenses: JSON.parse(localStorage.getItem('expenses') || '[]').length,
+          xirrCalculations: JSON.parse(localStorage.getItem('xirr-calculations') || '[]').length,
+          mfWatchlist: JSON.parse(localStorage.getItem('mf-watchlist') || '[]').length,
+          mfPurchases: JSON.parse(localStorage.getItem('mf-purchases') || '[]').length,
+        });
+      } catch (error) {
+        console.error('Failed to load data overview:', error);
+      }
+    };
+
+    loadDataOverview();
+  }, []);
 
   // Load saved import mode preference
   useEffect(() => {
@@ -83,6 +120,36 @@ export default function ExportPage() {
     };
     localStorage.setItem('export-import-preferences', JSON.stringify(preferences));
   }, [importMode]);
+
+  // Load individual data when selected type changes
+  useEffect(() => {
+    if (!showIndividualEntries) return;
+
+    const loadIndividualData = () => {
+      try {
+        const storageKeyMap: Record<string, string> = {
+          recharges: 'recharges',
+          sipCalculations: 'sip-calculations',
+          fdCalculations: 'fd-calculations',
+          loanCalculations: 'loan-calculations',
+          bills: 'bills',
+          expenses: 'expenses',
+          xirrCalculations: 'xirr-calculations',
+          mfWatchlist: 'mf-watchlist',
+          mfPurchases: 'mf-purchases',
+        };
+
+        const storageKey = storageKeyMap[selectedDataType];
+        const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        setIndividualData(data);
+      } catch (error) {
+        console.error('Failed to load individual data:', error);
+        setIndividualData([]);
+      }
+    };
+
+    loadIndividualData();
+  }, [selectedDataType, showIndividualEntries]);
 
   const generateExportData = useCallback((): ExportData => {
     const exportData: ExportData = {
@@ -581,6 +648,228 @@ export default function ExportPage() {
     }
   };
 
+  const renderIndividualEntry = (entry: any, index: number, type: string) => {
+    const formatDate = (dateStr: string) => {
+      try {
+        return new Date(dateStr).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    switch (type) {
+      case 'recharges':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.nickname || 'Unknown'}</div>
+                <div className="text-sm text-muted-foreground">{entry.phoneNumber || 'N/A'}</div>
+                {(entry.planDays || entry.remainingDays) && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {entry.planDays || 0} days plan • {entry.remainingDays || 0} days remaining
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">{entry.lastRechargeAmount ? formatCurrency(entry.lastRechargeAmount) : 'N/A'}</div>
+                <div className="text-xs text-muted-foreground">{entry.rechargeDate ? formatDate(entry.rechargeDate) : 'N/A'}</div>
+                <div className={`text-xs mt-1 ${entry.enabled ? 'text-green-600' : 'text-gray-400'}`}>
+                  {entry.enabled ? 'Active' : 'Disabled'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'sipCalculations':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="font-medium">{entry.name || `SIP #${index + 1}`}</div>
+                <div className="text-sm text-muted-foreground">
+                  {entry.amount ? formatCurrency(entry.amount) : 'N/A'} • {entry.frequency || 'N/A'} • {entry.duration || 0} months
+                </div>
+                {entry.xirr && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Expected return: {entry.xirr}%
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">Status</div>
+                <div className={`text-sm font-medium ${entry.enabled ? 'text-green-600' : 'text-gray-400'}`}>
+                  {entry.enabled ? 'Active' : 'Disabled'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'fdCalculations':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.name || `FD #${index + 1}`}</div>
+                <div className="text-sm text-muted-foreground">
+                  Principal: {entry.principal ? formatCurrency(entry.principal) : 'N/A'} @ {entry.interestRate || 0}%
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">Duration</div>
+                <div className="text-sm font-medium">{entry.years || 0} years</div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'loanCalculations':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.name || `Loan #${index + 1}`}</div>
+                <div className="text-sm text-muted-foreground">
+                  Amount: {entry.principal ? formatCurrency(entry.principal) : 'N/A'} @ {entry.interestRate || 0}%
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">Tenure</div>
+                <div className="text-sm font-medium">{entry.tenureYears || 0} years</div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'bills':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.name || 'Bill'}</div>
+                <div className="text-sm text-muted-foreground">Due: {entry.dueDate ? formatDate(entry.dueDate) : 'N/A'}</div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">{entry.amount ? formatCurrency(entry.amount) : 'N/A'}</div>
+                <div className={`text-xs ${entry.paid ? 'text-green-600' : 'text-orange-600'}`}>
+                  {entry.paid ? 'Paid' : 'Pending'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'expenses':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.name || 'Expense'}</div>
+                <div className="text-sm text-muted-foreground">
+                  {entry.date ? formatDate(entry.date) : 'N/A'} • {entry.dissolutionPeriodYears || 0} year{entry.dissolutionPeriodYears !== 1 ? 's' : ''} period
+                </div>
+                {entry.perMonthCost && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Per month: {formatCurrency(entry.perMonthCost)}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">{entry.amount ? formatCurrency(entry.amount) : 'N/A'}</div>
+                <div className={`text-xs mt-1 ${entry.enabled ? 'text-green-600' : 'text-gray-400'}`}>
+                  {entry.enabled ? 'Active' : 'Disabled'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'xirrCalculations':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">{entry.name || `XIRR #${index + 1}`}</div>
+                <div className="text-sm text-muted-foreground">
+                  Initial: {entry.initialAmount ? formatCurrency(entry.initialAmount) : 'N/A'} • {entry.periodYears || 0} years
+                </div>
+                {entry.finalAmount && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Final: {formatCurrency(entry.finalAmount)}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">
+                  {entry.mode === 'calculateXIRR' ? 'XIRR' : 'Final Value'}
+                </div>
+                <div className="text-sm font-medium">
+                  {entry.mode === 'calculateXIRR'
+                    ? (entry.xirr ? `${entry.xirr.toFixed(2)}%` : 'N/A')
+                    : (entry.finalAmount ? formatCurrency(entry.finalAmount) : 'N/A')
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'mfWatchlist':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">Scheme Code: {entry.schemeCode || 'N/A'}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">Added</div>
+                <div className="text-sm">{entry.addedAt ? formatDate(entry.addedAt) : 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'mfPurchases':
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-medium">Scheme Code: {entry.schemeCode || 'N/A'}</div>
+                <div className="text-sm text-muted-foreground">
+                  Units: {entry.units ? entry.units.toFixed(3) : 'N/A'} @ {entry.navAtPurchase ? formatCurrency(entry.navAtPurchase) : 'N/A'}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">{entry.amount ? formatCurrency(entry.amount) : 'N/A'}</div>
+                <div className="text-xs text-muted-foreground">{entry.purchaseDate ? formatDate(entry.purchaseDate) : 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <div key={index} className="p-3 bg-gray-50 rounded border">
+            <pre className="text-xs overflow-auto">{JSON.stringify(entry, null, 2)}</pre>
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
@@ -615,6 +904,144 @@ export default function ExportPage() {
             </AlertDescription>
           </Alert>
         )}
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Data Overview</CardTitle>
+            <CardDescription>
+              Current data stored in your browser's local storage
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm text-blue-600 font-medium mb-1">Recharges</div>
+                <div className="text-2xl font-bold text-blue-900">{dataOverview.recharges}</div>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="text-sm text-purple-600 font-medium mb-1">SIP Calculations</div>
+                <div className="text-2xl font-bold text-purple-900">{dataOverview.sipCalculations}</div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-sm text-green-600 font-medium mb-1">FD Calculations</div>
+                <div className="text-2xl font-bold text-green-900">{dataOverview.fdCalculations}</div>
+              </div>
+              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="text-sm text-orange-600 font-medium mb-1">Loan Calculations</div>
+                <div className="text-2xl font-bold text-orange-900">{dataOverview.loanCalculations}</div>
+              </div>
+              <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
+                <div className="text-sm text-pink-600 font-medium mb-1">Bills</div>
+                <div className="text-2xl font-bold text-pink-900">{dataOverview.bills}</div>
+              </div>
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="text-sm text-yellow-600 font-medium mb-1">Expenses</div>
+                <div className="text-2xl font-bold text-yellow-900">{dataOverview.expenses}</div>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                <div className="text-sm text-indigo-600 font-medium mb-1">XIRR Calculations</div>
+                <div className="text-2xl font-bold text-indigo-900">{dataOverview.xirrCalculations}</div>
+              </div>
+              <div className="p-4 bg-teal-50 rounded-lg border border-teal-200">
+                <div className="text-sm text-teal-600 font-medium mb-1">MF Watchlist</div>
+                <div className="text-2xl font-bold text-teal-900">{dataOverview.mfWatchlist}</div>
+              </div>
+              <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+                <div className="text-sm text-cyan-600 font-medium mb-1">MF Purchases</div>
+                <div className="text-2xl font-bold text-cyan-900">{dataOverview.mfPurchases}</div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                <strong>Total Items:</strong> {
+                  dataOverview.recharges +
+                  dataOverview.sipCalculations +
+                  dataOverview.fdCalculations +
+                  dataOverview.loanCalculations +
+                  dataOverview.bills +
+                  dataOverview.expenses +
+                  dataOverview.xirrCalculations +
+                  dataOverview.mfWatchlist +
+                  dataOverview.mfPurchases
+                }
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Individual Entries Viewer</CardTitle>
+                <CardDescription>
+                  View detailed entries for each data type
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowIndividualEntries(!showIndividualEntries)}
+              >
+                {showIndividualEntries ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-2" />
+                    Hide
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                    Show
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {showIndividualEntries && (
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="data-type-select" className="text-sm font-medium">
+                    Select Data Type
+                  </Label>
+                  <select
+                    id="data-type-select"
+                    value={selectedDataType}
+                    onChange={(e) => setSelectedDataType(e.target.value)}
+                    className="w-full mt-2 p-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="recharges">Recharges ({dataOverview.recharges})</option>
+                    <option value="sipCalculations">SIP Calculations ({dataOverview.sipCalculations})</option>
+                    <option value="fdCalculations">FD Calculations ({dataOverview.fdCalculations})</option>
+                    <option value="loanCalculations">Loan Calculations ({dataOverview.loanCalculations})</option>
+                    <option value="bills">Bills ({dataOverview.bills})</option>
+                    <option value="expenses">Expenses ({dataOverview.expenses})</option>
+                    <option value="xirrCalculations">XIRR Calculations ({dataOverview.xirrCalculations})</option>
+                    <option value="mfWatchlist">MF Watchlist ({dataOverview.mfWatchlist})</option>
+                    <option value="mfPurchases">MF Purchases ({dataOverview.mfPurchases})</option>
+                  </select>
+                </div>
+
+                <div className="border-t pt-4">
+                  {individualData.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No entries found for this data type
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      <div className="text-sm font-medium mb-3">
+                        Showing {individualData.length} {individualData.length === 1 ? 'entry' : 'entries'}
+                      </div>
+                      {individualData.map((entry, index) =>
+                        renderIndividualEntry(entry, index, selectedDataType)
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
