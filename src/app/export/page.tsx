@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff, ChevronDown, ChevronUp, Cloud, RefreshCw } from "lucide-react";
 import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
@@ -110,6 +111,11 @@ export default function ExportPage() {
     mfWatchlist: new Set(),
     mfPurchases: new Set(),
   });
+
+  // URL-based sync state
+  const [syncWithUrl, setSyncWithUrl] = useState(false);
+  const [customSyncUrl, setCustomSyncUrl] = useState('');
+  const [customUserId, setCustomUserId] = useState('');
 
   // Load data overview from localStorage
   useEffect(() => {
@@ -934,22 +940,62 @@ export default function ExportPage() {
     localStorage.setItem('mf-purchases', JSON.stringify(data.mfPurchases || []));
   };
 
+  // URL-based sync helpers
+  const saveDataToUrl = async (userId: string, data: any) => {
+    const response = await fetch(`${customSyncUrl}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id: userId, data }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save data to URL');
+    }
+
+    return response.json();
+  };
+
+  const retrieveDataFromUrl = async (userId: string) => {
+    const response = await fetch(`${customSyncUrl}/retrieve?id=${encodeURIComponent(userId)}`);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null; // No data found
+      }
+      throw new Error('Failed to retrieve data from URL');
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  };
+
   const handleSaveToCloud = async () => {
-    if (!user?.sub) return;
+    // Check if we have either Auth0 user or custom URL setup
+    if (!user?.sub && !syncWithUrl) return;
+    if (syncWithUrl && !customUserId) {
+      setSyncStatus('error');
+      setSyncMessage('Please enter a User ID for URL-based sync.');
+      return;
+    }
 
     setSyncStatus('syncing');
     setSyncMessage('Checking cloud data...');
 
     try {
       const localData = getLocalData();
-      const cloudData = await retrieveData(user.sub);
+      const userId = syncWithUrl ? customUserId : user!.sub!;
+      const cloudData = syncWithUrl
+        ? await retrieveDataFromUrl(userId)
+        : await retrieveData(userId);
 
       // Check if cloud data exists and is different
       if (cloudData) {
         const hasDataDifference = Object.keys(localData).some(key => {
           if (key === 'lastUpdated') return false;
-          const localArray = localData[key] || [];
-          const cloudArray = cloudData[key] || [];
+          const localArray = (localData as any)[key] || [];
+          const cloudArray = (cloudData as any)[key] || [];
           return localArray.length !== cloudArray.length;
         });
 
@@ -965,7 +1011,11 @@ export default function ExportPage() {
       }
 
       // No conflicts, proceed with save
-      await saveData(user.sub, localData);
+      if (syncWithUrl) {
+        await saveDataToUrl(userId, localData);
+      } else {
+        await saveData(userId, localData);
+      }
       setLastSynced(new Date());
       setSyncStatus('success');
       setSyncMessage('Data saved to cloud successfully!');
@@ -977,13 +1027,22 @@ export default function ExportPage() {
   };
 
   const handlePullFromCloud = async () => {
-    if (!user?.sub) return;
+    // Check if we have either Auth0 user or custom URL setup
+    if (!user?.sub && !syncWithUrl) return;
+    if (syncWithUrl && !customUserId) {
+      setSyncStatus('error');
+      setSyncMessage('Please enter a User ID for URL-based sync.');
+      return;
+    }
 
     setSyncStatus('syncing');
     setSyncMessage('Checking cloud data...');
 
     try {
-      const cloudData = await retrieveData(user.sub);
+      const userId = syncWithUrl ? customUserId : user!.sub!;
+      const cloudData = syncWithUrl
+        ? await retrieveDataFromUrl(userId)
+        : await retrieveData(userId);
 
       if (!cloudData) {
         setSyncStatus('error');
@@ -1180,9 +1239,15 @@ export default function ExportPage() {
       });
 
       // Save to local and cloud based on operation
+      const userId = syncWithUrl ? customUserId : user!.sub!;
+
       if (syncOperation === 'push') {
         // User was pushing, so save final data to cloud
-        await saveData(user.sub, finalData);
+        if (syncWithUrl) {
+          await saveDataToUrl(userId, finalData);
+        } else {
+          await saveData(userId, finalData);
+        }
         setSyncMessage('Data pushed to cloud successfully!');
       } else if (syncOperation === 'pull') {
         // User was pulling, so save final data to local
@@ -1191,7 +1256,11 @@ export default function ExportPage() {
       } else {
         // Bidirectional - save to both
         saveLocalData(finalData);
-        await saveData(user.sub, finalData);
+        if (syncWithUrl) {
+          await saveDataToUrl(userId, finalData);
+        } else {
+          await saveData(userId, finalData);
+        }
         setSyncMessage('Data synced successfully!');
       }
 
@@ -1238,360 +1307,409 @@ export default function ExportPage() {
           </p>
         </header>
 
-        {user && (
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Cloud className="h-5 w-5 text-blue-500" />
-                  <CardTitle>Cloud Sync</CardTitle>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {lastSynced ? `Last synced: ${lastSynced.toLocaleTimeString()}` : 'Not synced yet'}
-                </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-blue-500" />
+                <CardTitle>Cloud Sync</CardTitle>
               </div>
-              <CardDescription>
-                Sync your data with the cloud. Choose your sync mode and manage conflicts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Sync Mode Selection */}
-                <div>
-                  <Label className="text-sm font-medium">Sync Mode</Label>
-                  <RadioGroup value={syncMode} onValueChange={(value: any) => setSyncMode(value)} className="mt-2">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="bidirectional" id="bidirectional" />
-                      <Label htmlFor="bidirectional" className="text-sm font-normal">
-                        <div>
-                          <div className="font-medium">Bidirectional Sync (Merge)</div>
-                          <div className="text-xs text-muted-foreground">Merge local and cloud data automatically</div>
-                        </div>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="save-only" id="save-only" />
-                      <Label htmlFor="save-only" className="text-sm font-normal">
-                        <div>
-                          <div className="font-medium">Save to Cloud Only</div>
-                          <div className="text-xs text-muted-foreground">Upload local data to cloud (overwrite cloud)</div>
-                        </div>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="pull-only" id="pull-only" />
-                      <Label htmlFor="pull-only" className="text-sm font-normal">
-                        <div>
-                          <div className="font-medium">Pull from Cloud Only</div>
-                          <div className="text-xs text-muted-foreground">Download cloud data (overwrite local)</div>
-                        </div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
+              <div className="text-sm text-muted-foreground">
+                {lastSynced ? `Last synced: ${lastSynced.toLocaleTimeString()}` : 'Not synced yet'}
+              </div>
+            </div>
+            <CardDescription>
+              Sync your data with the cloud. {user ? 'Signed in as ' + user.name : 'Sign in or use custom URL.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* URL Sync Configuration */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox
+                    id="url-sync"
+                    checked={syncWithUrl}
+                    onCheckedChange={(checked) => setSyncWithUrl(checked as boolean)}
+                  />
+                  <Label htmlFor="url-sync" className="font-medium">Use Custom Sync URL (No Login Required)</Label>
                 </div>
 
-                {/* Sync Button and Status */}
-                <div className="flex gap-4 items-center pt-2">
-                  <Button onClick={handleSync} disabled={syncStatus === 'syncing'}>
-                    {syncStatus === 'syncing' ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Syncing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        {syncMode === 'save-only' ? 'Save to Cloud' : syncMode === 'pull-only' ? 'Pull from Cloud' : 'Sync Now'}
-                      </>
-                    )}
-                  </Button>
-
-                  {syncStatus === 'success' && (
-                    <span className="text-green-600 text-sm flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-1" /> {syncMessage}
-                    </span>
-                  )}
-
-                  {syncStatus === 'error' && (
-                    <span className="text-red-600 text-sm flex items-center">
-                      <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
-                    </span>
-                  )}
-
-                  {syncStatus === 'conflict' && (
-                    <span className="text-orange-600 text-sm flex items-center">
-                      <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
-                    </span>
-                  )}
-                </div>
-
-                {/* Conflict Resolution UI */}
-                {showConflictUI && conflictData && (
-                  <div className="border-t pt-4 mt-4">
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <h4 className="font-medium text-orange-900 mb-3">Merge Conflict Detected</h4>
-                      <p className="text-sm text-orange-800 mb-4">
-                        Your local data and cloud data have diverged. Choose how to resolve:
+                {syncWithUrl && (
+                  <div className="space-y-3 pl-6">
+                    <div>
+                      <Label htmlFor="sync-url" className="text-xs">Sync URL</Label>
+                      <Input
+                        id="sync-url"
+                        value={customSyncUrl}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomSyncUrl(e.target.value)}
+                        className="h-8 text-sm"
+                        placeholder="https://api.example.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="user-id" className="text-xs">User ID (for identification)</Label>
+                      <Input
+                        id="user-id"
+                        value={customUserId}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomUserId(e.target.value)}
+                        className="h-8 text-sm"
+                        placeholder="userid"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Use a unique ID to identify your data.
                       </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="bg-white p-3 rounded border">
-                          <div className="font-medium text-sm mb-2">Local Data</div>
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <div>Recharges: {conflictData.local.recharges?.length || 0}</div>
-                            <div>SIP Calculations: {conflictData.local.sipCalculations?.length || 0}</div>
-                            <div>FD Calculations: {conflictData.local.fdCalculations?.length || 0}</div>
-                            <div>Bills: {conflictData.local.bills?.length || 0}</div>
-                            <div>Expenses: {conflictData.local.expenses?.length || 0}</div>
-                          </div>
-                        </div>
-                        <div className="bg-white p-3 rounded border">
-                          <div className="font-medium text-sm mb-2">Cloud Data</div>
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <div>Recharges: {conflictData.remote.recharges?.length || 0}</div>
-                            <div>SIP Calculations: {conflictData.remote.sipCalculations?.length || 0}</div>
-                            <div>FD Calculations: {conflictData.remote.fdCalculations?.length || 0}</div>
-                            <div>Bills: {conflictData.remote.bills?.length || 0}</div>
-                            <div>Expenses: {conflictData.remote.expenses?.length || 0}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleResolveConflict('local')}>
-                          Use Local Data
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleResolveConflict('remote')}>
-                          Use Cloud Data
-                        </Button>
-                        <Button size="sm" onClick={() => handleResolveConflict('merge')}>
-                          Merge Both (Recommended)
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowConflictUI(false)}>
-                          Cancel
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 )}
+              </div>
 
-                {/* Granular Conflict Resolution UI */}
-                {showGranularConflictUI && conflictData && (
-                  <div className="border-t pt-4 mt-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-medium text-blue-900 mb-3">
-                        Choose Data for Each Type
-                      </h4>
-                      <p className="text-sm text-blue-800 mb-4">
-                        Select which data to keep for each type. You can mix and match!
-                      </p>
-
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {Object.keys(dataTypeChoices).map(key => {
-                          const localCount = (conflictData.local as any)[key]?.length || 0;
-                          const remoteCount = (conflictData.remote as any)[key]?.length || 0;
-                          const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                          const isExpanded = expandedDataType === key;
-                          const localEntries = (conflictData.local as any)[key] || [];
-                          const remoteEntries = (conflictData.remote as any)[key] || [];
-
-                          return (
-                            <div key={key} className="bg-white p-3 rounded border">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="font-medium text-sm">{displayName}</div>
-                                  {(localCount > 0 || remoteCount > 0) && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 px-2"
-                                      onClick={() => setExpandedDataType(isExpanded ? null : key)}
-                                    >
-                                      {isExpanded ? (
-                                        <>
-                                          <ChevronUp className="h-3 w-3 mr-1" />
-                                          Hide
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ChevronDown className="h-3 w-3 mr-1" />
-                                          View Entries
-                                        </>
-                                      )}
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  Local: {localCount} | Cloud: {remoteCount}
-                                </div>
-                              </div>
-                              <RadioGroup
-                                value={dataTypeChoices[key]}
-                                onValueChange={(value: any) =>
-                                  setDataTypeChoices(prev => ({ ...prev, [key]: value }))
-                                }
-                                className="flex gap-4 flex-wrap"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="local" id={`${key}-local`} />
-                                  <Label htmlFor={`${key}-local`} className="text-xs font-normal">
-                                    Use Local ({localCount})
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="remote" id={`${key}-remote`} />
-                                  <Label htmlFor={`${key}-remote`} className="text-xs font-normal">
-                                    Use Cloud ({remoteCount})
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="merge" id={`${key}-merge`} />
-                                  <Label htmlFor={`${key}-merge`} className="text-xs font-normal">
-                                    Merge Both
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="custom" id={`${key}-custom`} />
-                                  <Label htmlFor={`${key}-custom`} className="text-xs font-normal">
-                                    Pick Individual
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-
-                              {/* Individual Entries View */}
-                              {isExpanded && (
-                                <div className="mt-3 pt-3 border-t space-y-2">
-                                  <div className="text-xs font-medium mb-2">
-                                    {dataTypeChoices[key] === 'custom' ? 'Select entries to keep:' : 'Preview entries:'}
-                                  </div>
-
-                                  {localCount > 0 && (
-                                    <div className="mb-3">
-                                      <div className="text-xs font-medium text-blue-700 mb-1">Local Entries:</div>
-                                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                                        {localEntries.map((entry: any, idx: number) => {
-                                          const entryId = entry.id || `local-${idx}`;
-                                          const isSelected = selectedEntries[key]?.has(entryId);
-                                          const showCheckbox = dataTypeChoices[key] === 'custom';
-
-                                          return (
-                                            <div key={entryId} className={`flex items-start gap-2 p-2 bg-blue-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
-                                              {showCheckbox && (
-                                                <Checkbox
-                                                  checked={isSelected}
-                                                  onCheckedChange={(checked) => {
-                                                    setSelectedEntries(prev => {
-                                                      const newSet = new Set(prev[key]);
-                                                      if (checked) {
-                                                        newSet.add(entryId);
-                                                      } else {
-                                                        newSet.delete(entryId);
-                                                      }
-                                                      return { ...prev, [key]: newSet };
-                                                    });
-                                                  }}
-                                                />
-                                              )}
-                                              <div className="flex-1">
-                                                {renderIndividualEntry(entry, idx, key)}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {remoteCount > 0 && (
-                                    <div>
-                                      <div className="text-xs font-medium text-green-700 mb-1">Cloud Entries:</div>
-                                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                                        {remoteEntries.map((entry: any, idx: number) => {
-                                          const entryId = entry.id || `remote-${idx}`;
-                                          const isSelected = selectedEntries[key]?.has(entryId);
-                                          const showCheckbox = dataTypeChoices[key] === 'custom';
-
-                                          return (
-                                            <div key={entryId} className={`flex items-start gap-2 p-2 bg-green-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
-                                              {showCheckbox && (
-                                                <Checkbox
-                                                  checked={isSelected}
-                                                  onCheckedChange={(checked) => {
-                                                    setSelectedEntries(prev => {
-                                                      const newSet = new Set(prev[key]);
-                                                      if (checked) {
-                                                        newSet.add(entryId);
-                                                      } else {
-                                                        newSet.delete(entryId);
-                                                      }
-                                                      return { ...prev, [key]: newSet };
-                                                    });
-                                                  }}
-                                                />
-                                              )}
-                                              <div className="flex-1">
-                                                {renderIndividualEntry(entry, idx, key)}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+              {/* Sync Mode Selection */}
+              {(user || syncWithUrl) ? (
+                <div className="space-y-4">
+                  <div>
+                    {/* Sync Mode Selection */}
+                    <div>
+                      <Label className="text-sm font-medium">Sync Mode</Label>
+                      <RadioGroup value={syncMode} onValueChange={(value: any) => setSyncMode(value)} className="mt-2">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="bidirectional" id="bidirectional" />
+                          <Label htmlFor="bidirectional" className="text-sm font-normal">
+                            <div>
+                              <div className="font-medium">Bidirectional Sync (Merge)</div>
+                              <div className="text-xs text-muted-foreground">Merge local and cloud data automatically</div>
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex gap-2 mt-4 pt-4 border-t">
-                        <Button onClick={handleGranularResolve} disabled={syncStatus === 'syncing'}>
-                          {syncStatus === 'syncing' ? (
-                            <>
-                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                              Applying...
-                            </>
-                          ) : (
-                            <>Apply Choices</>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            // Reset all to merge
-                            setDataTypeChoices({
-                              recharges: 'merge',
-                              sipCalculations: 'merge',
-                              fdCalculations: 'merge',
-                              loanCalculations: 'merge',
-                              bills: 'merge',
-                              expenses: 'merge',
-                              xirrCalculations: 'merge',
-                              mfWatchlist: 'merge',
-                              mfPurchases: 'merge',
-                            });
-                          }}
-                        >
-                          Reset to Merge All
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setShowGranularConflictUI(false);
-                            setSyncStatus('idle');
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="save-only" id="save-only" />
+                          <Label htmlFor="save-only" className="text-sm font-normal">
+                            <div>
+                              <div className="font-medium">Save to Cloud Only</div>
+                              <div className="text-xs text-muted-foreground">Upload local data to cloud (overwrite cloud)</div>
+                            </div>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="pull-only" id="pull-only" />
+                          <Label htmlFor="pull-only" className="text-sm font-normal">
+                            <div>
+                              <div className="font-medium">Pull from Cloud Only</div>
+                              <div className="text-xs text-muted-foreground">Download cloud data (overwrite local)</div>
+                            </div>
+                          </Label>
+                        </div>
+                      </RadioGroup>
                     </div>
+
+                    {/* Sync Button and Status */}
+                    <div className="flex gap-4 items-center pt-2">
+                      <Button onClick={handleSync} disabled={syncStatus === 'syncing'}>
+                        {syncStatus === 'syncing' ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            {syncMode === 'save-only' ? 'Save to Cloud' : syncMode === 'pull-only' ? 'Pull from Cloud' : 'Sync Now'}
+                          </>
+                        )}
+                      </Button>
+
+                      {syncStatus === 'success' && (
+                        <span className="text-green-600 text-sm flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                        </span>
+                      )}
+
+                      {syncStatus === 'error' && (
+                        <span className="text-red-600 text-sm flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                        </span>
+                      )}
+
+                      {syncStatus === 'conflict' && (
+                        <span className="text-orange-600 text-sm flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Conflict Resolution UI */}
+                    {showConflictUI && conflictData && (
+                      <div className="border-t pt-4 mt-4">
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                          <h4 className="font-medium text-orange-900 mb-3">Merge Conflict Detected</h4>
+                          <p className="text-sm text-orange-800 mb-4">
+                            Your local data and cloud data have diverged. Choose how to resolve:
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="bg-white p-3 rounded border">
+                              <div className="font-medium text-sm mb-2">Local Data</div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div>Recharges: {conflictData.local.recharges?.length || 0}</div>
+                                <div>SIP Calculations: {conflictData.local.sipCalculations?.length || 0}</div>
+                                <div>FD Calculations: {conflictData.local.fdCalculations?.length || 0}</div>
+                                <div>Bills: {conflictData.local.bills?.length || 0}</div>
+                                <div>Expenses: {conflictData.local.expenses?.length || 0}</div>
+                              </div>
+                            </div>
+                            <div className="bg-white p-3 rounded border">
+                              <div className="font-medium text-sm mb-2">Cloud Data</div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div>Recharges: {conflictData.remote.recharges?.length || 0}</div>
+                                <div>SIP Calculations: {conflictData.remote.sipCalculations?.length || 0}</div>
+                                <div>FD Calculations: {conflictData.remote.fdCalculations?.length || 0}</div>
+                                <div>Bills: {conflictData.remote.bills?.length || 0}</div>
+                                <div>Expenses: {conflictData.remote.expenses?.length || 0}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleResolveConflict('local')}>
+                              Use Local Data
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleResolveConflict('remote')}>
+                              Use Cloud Data
+                            </Button>
+                            <Button size="sm" onClick={() => handleResolveConflict('merge')}>
+                              Merge Both (Recommended)
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setShowConflictUI(false)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Granular Conflict Resolution UI */}
+                    {showGranularConflictUI && conflictData && (
+                      <div className="border-t pt-4 mt-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-medium text-blue-900 mb-3">
+                            Choose Data for Each Type
+                          </h4>
+                          <p className="text-sm text-blue-800 mb-4">
+                            Select which data to keep for each type. You can mix and match!
+                          </p>
+
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {Object.keys(dataTypeChoices).map(key => {
+                              const localCount = (conflictData.local as any)[key]?.length || 0;
+                              const remoteCount = (conflictData.remote as any)[key]?.length || 0;
+                              const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                              const isExpanded = expandedDataType === key;
+                              const localEntries = (conflictData.local as any)[key] || [];
+                              const remoteEntries = (conflictData.remote as any)[key] || [];
+
+                              return (
+                                <div key={key} className="bg-white p-3 rounded border">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-medium text-sm">{displayName}</div>
+                                      {(localCount > 0 || remoteCount > 0) && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 px-2"
+                                          onClick={() => setExpandedDataType(isExpanded ? null : key)}
+                                        >
+                                          {isExpanded ? (
+                                            <>
+                                              <ChevronUp className="h-3 w-3 mr-1" />
+                                              Hide
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ChevronDown className="h-3 w-3 mr-1" />
+                                              View Entries
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Local: {localCount} | Cloud: {remoteCount}
+                                    </div>
+                                  </div>
+                                  <RadioGroup
+                                    value={dataTypeChoices[key]}
+                                    onValueChange={(value: any) =>
+                                      setDataTypeChoices(prev => ({ ...prev, [key]: value }))
+                                    }
+                                    className="flex gap-4 flex-wrap"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="local" id={`${key}-local`} />
+                                      <Label htmlFor={`${key}-local`} className="text-xs font-normal">
+                                        Use Local ({localCount})
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="remote" id={`${key}-remote`} />
+                                      <Label htmlFor={`${key}-remote`} className="text-xs font-normal">
+                                        Use Cloud ({remoteCount})
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="merge" id={`${key}-merge`} />
+                                      <Label htmlFor={`${key}-merge`} className="text-xs font-normal">
+                                        Merge Both
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="custom" id={`${key}-custom`} />
+                                      <Label htmlFor={`${key}-custom`} className="text-xs font-normal">
+                                        Pick Individual
+                                      </Label>
+                                    </div>
+                                  </RadioGroup>
+
+                                  {/* Individual Entries View */}
+                                  {isExpanded && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      <div className="text-xs font-medium mb-2">
+                                        {dataTypeChoices[key] === 'custom' ? 'Select entries to keep:' : 'Preview entries:'}
+                                      </div>
+
+                                      {localCount > 0 && (
+                                        <div className="mb-3">
+                                          <div className="text-xs font-medium text-blue-700 mb-1">Local Entries:</div>
+                                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                                            {localEntries.map((entry: any, idx: number) => {
+                                              const entryId = entry.id || `local-${idx}`;
+                                              const isSelected = selectedEntries[key]?.has(entryId);
+                                              const showCheckbox = dataTypeChoices[key] === 'custom';
+
+                                              return (
+                                                <div key={entryId} className={`flex items-start gap-2 p-2 bg-blue-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
+                                                  {showCheckbox && (
+                                                    <Checkbox
+                                                      checked={isSelected}
+                                                      onCheckedChange={(checked) => {
+                                                        setSelectedEntries(prev => {
+                                                          const newSet = new Set(prev[key]);
+                                                          if (checked) {
+                                                            newSet.add(entryId);
+                                                          } else {
+                                                            newSet.delete(entryId);
+                                                          }
+                                                          return { ...prev, [key]: newSet };
+                                                        });
+                                                      }}
+                                                    />
+                                                  )}
+                                                  <div className="flex-1">
+                                                    {renderIndividualEntry(entry, idx, key)}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {remoteCount > 0 && (
+                                        <div>
+                                          <div className="text-xs font-medium text-green-700 mb-1">Cloud Entries:</div>
+                                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                                            {remoteEntries.map((entry: any, idx: number) => {
+                                              const entryId = entry.id || `remote-${idx}`;
+                                              const isSelected = selectedEntries[key]?.has(entryId);
+                                              const showCheckbox = dataTypeChoices[key] === 'custom';
+
+                                              return (
+                                                <div key={entryId} className={`flex items-start gap-2 p-2 bg-green-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
+                                                  {showCheckbox && (
+                                                    <Checkbox
+                                                      checked={isSelected}
+                                                      onCheckedChange={(checked) => {
+                                                        setSelectedEntries(prev => {
+                                                          const newSet = new Set(prev[key]);
+                                                          if (checked) {
+                                                            newSet.add(entryId);
+                                                          } else {
+                                                            newSet.delete(entryId);
+                                                          }
+                                                          return { ...prev, [key]: newSet };
+                                                        });
+                                                      }}
+                                                    />
+                                                  )}
+                                                  <div className="flex-1">
+                                                    {renderIndividualEntry(entry, idx, key)}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex gap-2 mt-4 pt-4 border-t">
+                            <Button onClick={handleGranularResolve} disabled={syncStatus === 'syncing'}>
+                              {syncStatus === 'syncing' ? (
+                                <>
+                                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                  Applying...
+                                </>
+                              ) : (
+                                <>Apply Choices</>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                // Reset all to merge
+                                setDataTypeChoices({
+                                  recharges: 'merge',
+                                  sipCalculations: 'merge',
+                                  fdCalculations: 'merge',
+                                  loanCalculations: 'merge',
+                                  bills: 'merge',
+                                  expenses: 'merge',
+                                  xirrCalculations: 'merge',
+                                  mfWatchlist: 'merge',
+                                  mfPurchases: 'merge',
+                                });
+                              }}
+                            >
+                              Reset to Merge All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setShowGranularConflictUI(false);
+                                setSyncStatus('idle');
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm border-t pt-4">
+                  Please sign in or enable Custom Sync URL to continue.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {importStatus !== 'idle' && (
           <Alert className={`mb-6 ${importStatus === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
