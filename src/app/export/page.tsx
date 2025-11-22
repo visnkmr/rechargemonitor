@@ -8,13 +8,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff, ChevronDown, ChevronUp, Cloud, RefreshCw } from "lucide-react";
 import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
 import { Bill } from "@/hooks/use-bills";
 import { LoginButton } from "@/components/login-button";
-import { SyncManager } from "@/components/sync-manager";
+import { useUser } from '@auth0/nextjs-auth0/client';
+import { saveData, retrieveData } from '@/lib/api';
 
 interface ExportData {
   recharges?: Recharge[];
@@ -74,6 +75,41 @@ export default function ExportPage() {
   const [showIndividualEntries, setShowIndividualEntries] = useState(false);
   const [selectedDataType, setSelectedDataType] = useState<string>('recharges');
   const [individualData, setIndividualData] = useState<any[]>([]);
+
+  // Sync state
+  const { user } = useUser();
+  const [syncMode, setSyncMode] = useState<'bidirectional' | 'save-only' | 'pull-only'>('bidirectional');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'conflict'>('idle');
+  const [syncMessage, setSyncMessage] = useState('');
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [hasConflicts, setHasConflicts] = useState(false);
+  const [conflictData, setConflictData] = useState<{ local: any, remote: any } | null>(null);
+  const [showConflictUI, setShowConflictUI] = useState(false);
+  const [syncOperation, setSyncOperation] = useState<'push' | 'pull' | 'bidirectional' | null>(null);
+  const [showGranularConflictUI, setShowGranularConflictUI] = useState(false);
+  const [dataTypeChoices, setDataTypeChoices] = useState<Record<string, 'local' | 'remote' | 'merge' | 'custom'>>({
+    recharges: 'merge',
+    sipCalculations: 'merge',
+    fdCalculations: 'merge',
+    loanCalculations: 'merge',
+    bills: 'merge',
+    expenses: 'merge',
+    xirrCalculations: 'merge',
+    mfWatchlist: 'merge',
+    mfPurchases: 'merge',
+  });
+  const [expandedDataType, setExpandedDataType] = useState<string | null>(null);
+  const [selectedEntries, setSelectedEntries] = useState<Record<string, Set<string>>>({
+    recharges: new Set(),
+    sipCalculations: new Set(),
+    fdCalculations: new Set(),
+    loanCalculations: new Set(),
+    bills: new Set(),
+    expenses: new Set(),
+    xirrCalculations: new Set(),
+    mfWatchlist: new Set(),
+    mfPurchases: new Set(),
+  });
 
   // Load data overview from localStorage
   useEffect(() => {
@@ -870,6 +906,317 @@ export default function ExportPage() {
     }
   };
 
+  // Sync functions
+  const getLocalData = () => {
+    return {
+      recharges: JSON.parse(localStorage.getItem('recharges') || '[]'),
+      sipCalculations: JSON.parse(localStorage.getItem('sip-calculations') || '[]'),
+      fdCalculations: JSON.parse(localStorage.getItem('fd-calculations') || '[]'),
+      loanCalculations: JSON.parse(localStorage.getItem('loan-calculations') || '[]'),
+      bills: JSON.parse(localStorage.getItem('bills') || '[]'),
+      expenses: JSON.parse(localStorage.getItem('expenses') || '[]'),
+      xirrCalculations: JSON.parse(localStorage.getItem('xirr-calculations') || '[]'),
+      mfWatchlist: JSON.parse(localStorage.getItem('mf-watchlist') || '[]'),
+      mfPurchases: JSON.parse(localStorage.getItem('mf-purchases') || '[]'),
+      lastUpdated: new Date().toISOString(),
+    };
+  };
+
+  const saveLocalData = (data: any) => {
+    localStorage.setItem('recharges', JSON.stringify(data.recharges || []));
+    localStorage.setItem('sip-calculations', JSON.stringify(data.sipCalculations || []));
+    localStorage.setItem('fd-calculations', JSON.stringify(data.fdCalculations || []));
+    localStorage.setItem('loan-calculations', JSON.stringify(data.loanCalculations || []));
+    localStorage.setItem('bills', JSON.stringify(data.bills || []));
+    localStorage.setItem('expenses', JSON.stringify(data.expenses || []));
+    localStorage.setItem('xirr-calculations', JSON.stringify(data.xirrCalculations || []));
+    localStorage.setItem('mf-watchlist', JSON.stringify(data.mfWatchlist || []));
+    localStorage.setItem('mf-purchases', JSON.stringify(data.mfPurchases || []));
+  };
+
+  const handleSaveToCloud = async () => {
+    if (!user?.sub) return;
+
+    setSyncStatus('syncing');
+    setSyncMessage('Checking cloud data...');
+
+    try {
+      const localData = getLocalData();
+      const cloudData = await retrieveData(user.sub);
+
+      // Check if cloud data exists and is different
+      if (cloudData) {
+        const hasDataDifference = Object.keys(localData).some(key => {
+          if (key === 'lastUpdated') return false;
+          const localArray = localData[key] || [];
+          const cloudArray = cloudData[key] || [];
+          return localArray.length !== cloudArray.length;
+        });
+
+        if (hasDataDifference) {
+          // Show granular conflict UI
+          setConflictData({ local: localData, remote: cloudData });
+          setSyncOperation('push');
+          setShowGranularConflictUI(true);
+          setSyncStatus('conflict');
+          setSyncMessage('Cloud data differs from local. Choose which data to keep for each type.');
+          return;
+        }
+      }
+
+      // No conflicts, proceed with save
+      await saveData(user.sub, localData);
+      setLastSynced(new Date());
+      setSyncStatus('success');
+      setSyncMessage('Data saved to cloud successfully!');
+    } catch (error) {
+      console.error('Save failed:', error);
+      setSyncStatus('error');
+      setSyncMessage('Failed to save data to cloud.');
+    }
+  };
+
+  const handlePullFromCloud = async () => {
+    if (!user?.sub) return;
+
+    setSyncStatus('syncing');
+    setSyncMessage('Checking cloud data...');
+
+    try {
+      const cloudData = await retrieveData(user.sub);
+
+      if (!cloudData) {
+        setSyncStatus('error');
+        setSyncMessage('No cloud data found.');
+        return;
+      }
+
+      const localData = getLocalData();
+
+      // Check if local data exists and is different
+      const hasDataDifference = Object.keys(cloudData).some(key => {
+        if (key === 'lastUpdated') return false;
+        const localArray = (localData as any)[key] || [];
+        const cloudArray = (cloudData as any)[key] || [];
+        return localArray.length !== cloudArray.length;
+      });
+
+      if (hasDataDifference && Object.values(localData).some((arr: any) => arr?.length > 0)) {
+        // Show granular conflict UI
+        setConflictData({ local: localData, remote: cloudData });
+        setSyncOperation('pull');
+        setShowGranularConflictUI(true);
+        setSyncStatus('conflict');
+        setSyncMessage('Local data differs from cloud. Choose which data to keep for each type.');
+        return;
+      }
+
+      // No conflicts, proceed with pull
+      saveLocalData(cloudData);
+      setLastSynced(new Date());
+      setSyncStatus('success');
+      setSyncMessage('Data pulled from cloud successfully! Please refresh to see changes.');
+    } catch (error) {
+      console.error('Pull failed:', error);
+      setSyncStatus('error');
+      setSyncMessage('Failed to pull data from cloud.');
+    }
+  };
+
+  const handleBidirectionalSync = async () => {
+    if (!user?.sub) return;
+
+    setSyncStatus('syncing');
+    setSyncMessage('Syncing data...');
+
+    try {
+      const cloudData = await retrieveData(user.sub);
+      const localData = getLocalData();
+
+      // Check for conflicts
+      if (cloudData && cloudData.lastUpdated && localData.lastUpdated) {
+        const cloudDate = new Date(cloudData.lastUpdated);
+        const localDate = new Date(localData.lastUpdated);
+
+        // If timestamps differ significantly, show conflict UI
+        if (Math.abs(cloudDate.getTime() - localDate.getTime()) > 60000) { // 1 minute threshold
+          setConflictData({ local: localData, remote: cloudData });
+          setHasConflicts(true);
+          setShowConflictUI(true);
+          setSyncStatus('conflict');
+          setSyncMessage('Conflicts detected. Please choose how to merge.');
+          return;
+        }
+      }
+
+      // Auto-merge if no conflicts
+      const mergeArrays = (local: any[], cloud: any[]) => {
+        const map = new Map();
+        local.forEach(item => map.set(item.id || JSON.stringify(item), item));
+        cloud.forEach(item => map.set(item.id || JSON.stringify(item), item));
+        return Array.from(map.values());
+      };
+
+      const mergedData = {
+        recharges: mergeArrays(localData.recharges, cloudData?.recharges || []),
+        sipCalculations: mergeArrays(localData.sipCalculations, cloudData?.sipCalculations || []),
+        fdCalculations: mergeArrays(localData.fdCalculations, cloudData?.fdCalculations || []),
+        loanCalculations: mergeArrays(localData.loanCalculations, cloudData?.loanCalculations || []),
+        bills: mergeArrays(localData.bills, cloudData?.bills || []),
+        expenses: mergeArrays(localData.expenses, cloudData?.expenses || []),
+        xirrCalculations: mergeArrays(localData.xirrCalculations, cloudData?.xirrCalculations || []),
+        mfWatchlist: mergeArrays(localData.mfWatchlist, cloudData?.mfWatchlist || []),
+        mfPurchases: mergeArrays(localData.mfPurchases, cloudData?.mfPurchases || []),
+        lastUpdated: new Date().toISOString(),
+      };
+
+      saveLocalData(mergedData);
+      await saveData(user.sub, mergedData);
+
+      setLastSynced(new Date());
+      setSyncStatus('success');
+      setSyncMessage('Data synced successfully!');
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncStatus('error');
+      setSyncMessage('Failed to sync data.');
+    }
+  };
+
+  const handleResolveConflict = async (resolution: 'local' | 'remote' | 'merge') => {
+    if (!user?.sub || !conflictData) return;
+
+    setSyncStatus('syncing');
+    setSyncMessage('Resolving conflicts...');
+
+    try {
+      let finalData;
+
+      if (resolution === 'local') {
+        finalData = conflictData.local;
+      } else if (resolution === 'remote') {
+        finalData = conflictData.remote;
+      } else {
+        // Merge
+        const mergeArrays = (local: any[], cloud: any[]) => {
+          const map = new Map();
+          local.forEach(item => map.set(item.id || JSON.stringify(item), item));
+          cloud.forEach(item => map.set(item.id || JSON.stringify(item), item));
+          return Array.from(map.values());
+        };
+
+        finalData = {
+          recharges: mergeArrays(conflictData.local.recharges, conflictData.remote.recharges || []),
+          sipCalculations: mergeArrays(conflictData.local.sipCalculations, conflictData.remote.sipCalculations || []),
+          fdCalculations: mergeArrays(conflictData.local.fdCalculations, conflictData.remote.fdCalculations || []),
+          loanCalculations: mergeArrays(conflictData.local.loanCalculations, conflictData.remote.loanCalculations || []),
+          bills: mergeArrays(conflictData.local.bills, conflictData.remote.bills || []),
+          expenses: mergeArrays(conflictData.local.expenses, conflictData.remote.expenses || []),
+          xirrCalculations: mergeArrays(conflictData.local.xirrCalculations, conflictData.remote.xirrCalculations || []),
+          mfWatchlist: mergeArrays(conflictData.local.mfWatchlist, conflictData.remote.mfWatchlist || []),
+          mfPurchases: mergeArrays(conflictData.local.mfPurchases, conflictData.remote.mfPurchases || []),
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+
+      saveLocalData(finalData);
+      await saveData(user.sub, finalData);
+
+      setShowConflictUI(false);
+      setHasConflicts(false);
+      setConflictData(null);
+      setLastSynced(new Date());
+      setSyncStatus('success');
+      setSyncMessage('Conflicts resolved successfully!');
+    } catch (error) {
+      console.error('Conflict resolution failed:', error);
+      setSyncStatus('error');
+      setSyncMessage('Failed to resolve conflicts.');
+    }
+  };
+
+  const handleGranularResolve = async () => {
+    if (!user?.sub || !conflictData) return;
+
+    setSyncStatus('syncing');
+    setSyncMessage('Applying your choices...');
+
+    try {
+      const mergeArrays = (local: any[], cloud: any[]) => {
+        const map = new Map();
+        local.forEach(item => map.set(item.id || JSON.stringify(item), item));
+        cloud.forEach(item => map.set(item.id || JSON.stringify(item), item));
+        return Array.from(map.values());
+      };
+
+      const finalData: any = {
+        lastUpdated: new Date().toISOString(),
+      };
+
+      // Apply user choices for each data type
+      Object.keys(dataTypeChoices).forEach(key => {
+        const choice = dataTypeChoices[key];
+        const localArray = (conflictData.local as any)[key] || [];
+        const remoteArray = (conflictData.remote as any)[key] || [];
+
+        if (choice === 'local') {
+          finalData[key] = localArray;
+        } else if (choice === 'remote') {
+          finalData[key] = remoteArray;
+        } else if (choice === 'custom') {
+          // Use individually selected entries
+          const selected = selectedEntries[key] || new Set();
+          const selectedLocal = localArray.filter((entry: any, idx: number) =>
+            selected.has(entry.id || `local-${idx}`)
+          );
+          const selectedRemote = remoteArray.filter((entry: any, idx: number) =>
+            selected.has(entry.id || `remote-${idx}`)
+          );
+          finalData[key] = [...selectedLocal, ...selectedRemote];
+        } else {
+          // merge
+          finalData[key] = mergeArrays(localArray, remoteArray);
+        }
+      });
+
+      // Save to local and cloud based on operation
+      if (syncOperation === 'push') {
+        // User was pushing, so save final data to cloud
+        await saveData(user.sub, finalData);
+        setSyncMessage('Data pushed to cloud successfully!');
+      } else if (syncOperation === 'pull') {
+        // User was pulling, so save final data to local
+        saveLocalData(finalData);
+        setSyncMessage('Data pulled successfully! Please refresh to see changes.');
+      } else {
+        // Bidirectional - save to both
+        saveLocalData(finalData);
+        await saveData(user.sub, finalData);
+        setSyncMessage('Data synced successfully!');
+      }
+
+      setShowGranularConflictUI(false);
+      setConflictData(null);
+      setSyncOperation(null);
+      setLastSynced(new Date());
+      setSyncStatus('success');
+    } catch (error) {
+      console.error('Granular resolution failed:', error);
+      setSyncStatus('error');
+      setSyncMessage('Failed to apply your choices.');
+    }
+  };
+
+  const handleSync = () => {
+    if (syncMode === 'save-only') {
+      handleSaveToCloud();
+    } else if (syncMode === 'pull-only') {
+      handlePullFromCloud();
+    } else {
+      handleBidirectionalSync();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
@@ -886,11 +1233,365 @@ export default function ExportPage() {
             <LoginButton />
           </div>
           <h1 className="text-4xl font-bold">Export / Import Data</h1>
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground">
             Transfer your financial data (recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data) between devices.
           </p>
-          <SyncManager />
         </header>
+
+        {user && (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cloud className="h-5 w-5 text-blue-500" />
+                  <CardTitle>Cloud Sync</CardTitle>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {lastSynced ? `Last synced: ${lastSynced.toLocaleTimeString()}` : 'Not synced yet'}
+                </div>
+              </div>
+              <CardDescription>
+                Sync your data with the cloud. Choose your sync mode and manage conflicts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Sync Mode Selection */}
+                <div>
+                  <Label className="text-sm font-medium">Sync Mode</Label>
+                  <RadioGroup value={syncMode} onValueChange={(value: any) => setSyncMode(value)} className="mt-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="bidirectional" id="bidirectional" />
+                      <Label htmlFor="bidirectional" className="text-sm font-normal">
+                        <div>
+                          <div className="font-medium">Bidirectional Sync (Merge)</div>
+                          <div className="text-xs text-muted-foreground">Merge local and cloud data automatically</div>
+                        </div>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="save-only" id="save-only" />
+                      <Label htmlFor="save-only" className="text-sm font-normal">
+                        <div>
+                          <div className="font-medium">Save to Cloud Only</div>
+                          <div className="text-xs text-muted-foreground">Upload local data to cloud (overwrite cloud)</div>
+                        </div>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pull-only" id="pull-only" />
+                      <Label htmlFor="pull-only" className="text-sm font-normal">
+                        <div>
+                          <div className="font-medium">Pull from Cloud Only</div>
+                          <div className="text-xs text-muted-foreground">Download cloud data (overwrite local)</div>
+                        </div>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Sync Button and Status */}
+                <div className="flex gap-4 items-center pt-2">
+                  <Button onClick={handleSync} disabled={syncStatus === 'syncing'}>
+                    {syncStatus === 'syncing' ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {syncMode === 'save-only' ? 'Save to Cloud' : syncMode === 'pull-only' ? 'Pull from Cloud' : 'Sync Now'}
+                      </>
+                    )}
+                  </Button>
+
+                  {syncStatus === 'success' && (
+                    <span className="text-green-600 text-sm flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                    </span>
+                  )}
+
+                  {syncStatus === 'error' && (
+                    <span className="text-red-600 text-sm flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                    </span>
+                  )}
+
+                  {syncStatus === 'conflict' && (
+                    <span className="text-orange-600 text-sm flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" /> {syncMessage}
+                    </span>
+                  )}
+                </div>
+
+                {/* Conflict Resolution UI */}
+                {showConflictUI && conflictData && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-medium text-orange-900 mb-3">Merge Conflict Detected</h4>
+                      <p className="text-sm text-orange-800 mb-4">
+                        Your local data and cloud data have diverged. Choose how to resolve:
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="bg-white p-3 rounded border">
+                          <div className="font-medium text-sm mb-2">Local Data</div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div>Recharges: {conflictData.local.recharges?.length || 0}</div>
+                            <div>SIP Calculations: {conflictData.local.sipCalculations?.length || 0}</div>
+                            <div>FD Calculations: {conflictData.local.fdCalculations?.length || 0}</div>
+                            <div>Bills: {conflictData.local.bills?.length || 0}</div>
+                            <div>Expenses: {conflictData.local.expenses?.length || 0}</div>
+                          </div>
+                        </div>
+                        <div className="bg-white p-3 rounded border">
+                          <div className="font-medium text-sm mb-2">Cloud Data</div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div>Recharges: {conflictData.remote.recharges?.length || 0}</div>
+                            <div>SIP Calculations: {conflictData.remote.sipCalculations?.length || 0}</div>
+                            <div>FD Calculations: {conflictData.remote.fdCalculations?.length || 0}</div>
+                            <div>Bills: {conflictData.remote.bills?.length || 0}</div>
+                            <div>Expenses: {conflictData.remote.expenses?.length || 0}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleResolveConflict('local')}>
+                          Use Local Data
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleResolveConflict('remote')}>
+                          Use Cloud Data
+                        </Button>
+                        <Button size="sm" onClick={() => handleResolveConflict('merge')}>
+                          Merge Both (Recommended)
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setShowConflictUI(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Granular Conflict Resolution UI */}
+                {showGranularConflictUI && conflictData && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 mb-3">
+                        Choose Data for Each Type
+                      </h4>
+                      <p className="text-sm text-blue-800 mb-4">
+                        Select which data to keep for each type. You can mix and match!
+                      </p>
+
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {Object.keys(dataTypeChoices).map(key => {
+                          const localCount = (conflictData.local as any)[key]?.length || 0;
+                          const remoteCount = (conflictData.remote as any)[key]?.length || 0;
+                          const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          const isExpanded = expandedDataType === key;
+                          const localEntries = (conflictData.local as any)[key] || [];
+                          const remoteEntries = (conflictData.remote as any)[key] || [];
+
+                          return (
+                            <div key={key} className="bg-white p-3 rounded border">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium text-sm">{displayName}</div>
+                                  {(localCount > 0 || remoteCount > 0) && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2"
+                                      onClick={() => setExpandedDataType(isExpanded ? null : key)}
+                                    >
+                                      {isExpanded ? (
+                                        <>
+                                          <ChevronUp className="h-3 w-3 mr-1" />
+                                          Hide
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown className="h-3 w-3 mr-1" />
+                                          View Entries
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Local: {localCount} | Cloud: {remoteCount}
+                                </div>
+                              </div>
+                              <RadioGroup
+                                value={dataTypeChoices[key]}
+                                onValueChange={(value: any) =>
+                                  setDataTypeChoices(prev => ({ ...prev, [key]: value }))
+                                }
+                                className="flex gap-4 flex-wrap"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="local" id={`${key}-local`} />
+                                  <Label htmlFor={`${key}-local`} className="text-xs font-normal">
+                                    Use Local ({localCount})
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="remote" id={`${key}-remote`} />
+                                  <Label htmlFor={`${key}-remote`} className="text-xs font-normal">
+                                    Use Cloud ({remoteCount})
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="merge" id={`${key}-merge`} />
+                                  <Label htmlFor={`${key}-merge`} className="text-xs font-normal">
+                                    Merge Both
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="custom" id={`${key}-custom`} />
+                                  <Label htmlFor={`${key}-custom`} className="text-xs font-normal">
+                                    Pick Individual
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+
+                              {/* Individual Entries View */}
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t space-y-2">
+                                  <div className="text-xs font-medium mb-2">
+                                    {dataTypeChoices[key] === 'custom' ? 'Select entries to keep:' : 'Preview entries:'}
+                                  </div>
+
+                                  {localCount > 0 && (
+                                    <div className="mb-3">
+                                      <div className="text-xs font-medium text-blue-700 mb-1">Local Entries:</div>
+                                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                                        {localEntries.map((entry: any, idx: number) => {
+                                          const entryId = entry.id || `local-${idx}`;
+                                          const isSelected = selectedEntries[key]?.has(entryId);
+                                          const showCheckbox = dataTypeChoices[key] === 'custom';
+
+                                          return (
+                                            <div key={entryId} className={`flex items-start gap-2 p-2 bg-blue-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
+                                              {showCheckbox && (
+                                                <Checkbox
+                                                  checked={isSelected}
+                                                  onCheckedChange={(checked) => {
+                                                    setSelectedEntries(prev => {
+                                                      const newSet = new Set(prev[key]);
+                                                      if (checked) {
+                                                        newSet.add(entryId);
+                                                      } else {
+                                                        newSet.delete(entryId);
+                                                      }
+                                                      return { ...prev, [key]: newSet };
+                                                    });
+                                                  }}
+                                                />
+                                              )}
+                                              <div className="flex-1">
+                                                {renderIndividualEntry(entry, idx, key)}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {remoteCount > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium text-green-700 mb-1">Cloud Entries:</div>
+                                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                                        {remoteEntries.map((entry: any, idx: number) => {
+                                          const entryId = entry.id || `remote-${idx}`;
+                                          const isSelected = selectedEntries[key]?.has(entryId);
+                                          const showCheckbox = dataTypeChoices[key] === 'custom';
+
+                                          return (
+                                            <div key={entryId} className={`flex items-start gap-2 p-2 bg-green-50 rounded text-xs ${showCheckbox ? '' : 'pl-2'}`}>
+                                              {showCheckbox && (
+                                                <Checkbox
+                                                  checked={isSelected}
+                                                  onCheckedChange={(checked) => {
+                                                    setSelectedEntries(prev => {
+                                                      const newSet = new Set(prev[key]);
+                                                      if (checked) {
+                                                        newSet.add(entryId);
+                                                      } else {
+                                                        newSet.delete(entryId);
+                                                      }
+                                                      return { ...prev, [key]: newSet };
+                                                    });
+                                                  }}
+                                                />
+                                              )}
+                                              <div className="flex-1">
+                                                {renderIndividualEntry(entry, idx, key)}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex gap-2 mt-4 pt-4 border-t">
+                        <Button onClick={handleGranularResolve} disabled={syncStatus === 'syncing'}>
+                          {syncStatus === 'syncing' ? (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                              Applying...
+                            </>
+                          ) : (
+                            <>Apply Choices</>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            // Reset all to merge
+                            setDataTypeChoices({
+                              recharges: 'merge',
+                              sipCalculations: 'merge',
+                              fdCalculations: 'merge',
+                              loanCalculations: 'merge',
+                              bills: 'merge',
+                              expenses: 'merge',
+                              xirrCalculations: 'merge',
+                              mfWatchlist: 'merge',
+                              mfPurchases: 'merge',
+                            });
+                          }}
+                        >
+                          Reset to Merge All
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setShowGranularConflictUI(false);
+                            setSyncStatus('idle');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {importStatus !== 'idle' && (
           <Alert className={`mb-6 ${importStatus === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
