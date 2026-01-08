@@ -27,14 +27,44 @@ export type RechargeFormValues = z.infer<typeof rechargeSchema>;
 export const sipSchema = z.object({
   name: z.string().min(1, "Name is required"),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly']),
+  frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom']),
+  customDays: z.number().min(1, "Custom days must be at least 1").optional(),
   startDate: z.date(),
   duration: z.number().min(1, "Duration must be at least 1 month"),
   xirr: z.number().min(0).max(100).optional(),
   enabled: z.boolean().optional(),
+}).refine((data) => {
+  if (data.frequency === 'custom') {
+    return data.customDays && data.customDays >= 1;
+  }
+  return true;
+}, {
+  message: "Custom days is required when frequency is custom",
+  path: ["customDays"],
 });
 
 export type SIPFormValues = z.infer<typeof sipSchema>;
+
+export const mfSipSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom']),
+  customDays: z.number().min(1, "Custom days must be at least 1").optional(),
+  startDate: z.date(),
+  duration: z.number().min(1, "Duration must be at least 1 month"),
+  xirr: z.number().min(0).max(100).optional(),
+  enabled: z.boolean().optional(),
+}).refine((data) => {
+  if (data.frequency === 'custom') {
+    return data.customDays && data.customDays >= 1;
+  }
+  return true;
+}, {
+  message: "Custom days is required when frequency is custom",
+  path: ["customDays"],
+});
+
+export type MFSIPFormValues = z.infer<typeof mfSipSchema>;
 
 export const xirrSchema = z.object({
   name: z.string().min(1, "Name is required"),

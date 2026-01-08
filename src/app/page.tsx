@@ -20,7 +20,9 @@ import {
   Receipt,
   Eye,
   EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { useRecharges } from "@/hooks/use-recharges";
@@ -31,6 +33,7 @@ import { useXIRRCalculations } from "@/hooks/use-xirr-calculations";
 import { useBills } from "@/hooks/use-bills";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
+import { useMFSIPCalculations } from "@/hooks/use-mf-sip-calculations";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
 
 export default function Home() {
@@ -42,7 +45,10 @@ export default function Home() {
   const { bills, toggleBill } = useBills();
   const { expenses, toggleExpense } = useExpenses();
   const { watchlist, watchlistFunds } = useMutualFunds();
+  const { calculations: mfSipCalculations, toggleCalculation: toggleMFSIPCalculation } = useMFSIPCalculations();
   const [showWatchlistCharts, setShowWatchlistCharts] = useState(false);
+  const [showQuickStats, setShowQuickStats] = useState(true);
+  const [showRecentActivity, setShowRecentActivity] = useState(true);
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
@@ -92,7 +98,38 @@ export default function Home() {
   const monthlyLoanSpend = loanCalculations.reduce((sum, calc) => sum + calc.emi, 0);
   const monthlyBillsSpend = bills.filter(bill => bill.enabled).reduce((sum, bill) => sum + (bill.amount * (30 / bill.frequencyDays)), 0);
   const monthlyExpensesSpend = expenses.filter(expense => expense.enabled).reduce((sum, expense) => sum + expense.perMonthCost, 0);
-  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend + monthlyExpensesSpend;
+
+  const monthlyMFSIPSpend = mfSipCalculations
+    .filter(calc => calc.enabled)
+    .reduce((sum, calc) => {
+      // Normalize different frequencies to monthly
+      let monthlyAmount = 0;
+      switch (calc.frequency) {
+        case 'hourly':
+          monthlyAmount = calc.amount * 30 * 24; // Approximate
+          break;
+        case 'daily':
+          monthlyAmount = calc.amount * 30;
+          break;
+        case 'weekly':
+          monthlyAmount = calc.amount * 4.33; // Approximate
+          break;
+        case 'monthly':
+          monthlyAmount = calc.amount;
+          break;
+        case 'quarterly':
+          monthlyAmount = calc.amount / 3;
+          break;
+        case 'yearly':
+          monthlyAmount = calc.amount / 12;
+          break;
+        default:
+          monthlyAmount = calc.amount;
+      }
+      return sum + monthlyAmount;
+    }, 0);
+
+  const totalMonthlySpend = monthlyRechargeSpend + monthlySIPSpend + monthlyLoanSpend + monthlyBillsSpend + monthlyExpensesSpend + monthlyMFSIPSpend;
 
   const quickStats = [
     {
@@ -112,61 +149,12 @@ export default function Home() {
       bgColor: "bg-green-50",
     },
     {
-      title: "SIP Calculations",
-      value: sipCalculations.length,
-      description: "Saved investment plans",
-      icon: Target,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-    },
-    {
-      title: "FD Calculations",
-      value: fdCalculations.length,
-      description: "Fixed deposit plans",
-      icon: TrendingUp,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-    },
-    {
-      title: "Loan Calculations",
-      value: loanCalculations.length,
-      description: "Loan analysis reports",
-      icon: CreditCard,
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-    },
-    {
-      title: "XIRR Calculations",
-      value: xirrCalculations.length,
-      description: "XIRR and return calculations",
-      icon: TrendingUp,
-      color: "text-cyan-600",
-      bgColor: "bg-cyan-50",
-    },
-     {
-       title: "Bills",
-       value: bills.length,
-       description: "Recurring expenses",
-       icon: Receipt,
-       color: "text-teal-600",
-       bgColor: "bg-teal-50",
-     },
-     {
-       title: "Expenses",
-       value: expenses.length,
-       description: "Amortized one-time costs",
-       icon: Calculator,
-       color: "text-orange-600",
-       bgColor: "bg-orange-50",
-     },
-
-    {
-      title: "Monthly Spend",
-      value: `₹${totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      description: "Total monthly commitments",
-      icon: Wallet,
-      color: "text-indigo-600",
-      bgColor: "bg-indigo-50",
+      title: "Bills",
+      value: bills.length,
+      description: "Recurring expenses",
+      icon: Receipt,
+      color: "text-teal-600",
+      bgColor: "bg-teal-50",
     },
   ];
 
@@ -313,28 +301,64 @@ export default function Home() {
         )}
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 mb-8">
-          {quickStats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stat.description}
-                    </p>
-                  </div>
-                  <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Quick Stats
+                </CardTitle>
+                <CardDescription>
+                  Overview of your financial activities
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQuickStats(!showQuickStats)}
+              >
+                {showQuickStats ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-2" />
+                    Hide Stats
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                    Show Stats
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {showQuickStats && (
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                {quickStats.map((stat, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {stat.title}
+                          </p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {stat.description}
+                          </p>
+                        </div>
+                        <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                          <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          )}
+         </Card>
 
         {/* Financial Summary */}
         {(totalRechargeValue > 0 || totalSIPInvested > 0 || totalFDInvested > 0) && (
@@ -349,7 +373,7 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {totalRechargeValue > 0 && (
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Total Recharges</p>
@@ -374,6 +398,12 @@ export default function Home() {
                     </p>
                   </div>
                 )}
+                <div className="text-center p-4 bg-indigo-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Monthly Spend</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    ₹{totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -472,15 +502,37 @@ export default function Home() {
         {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0 || expenses.length > 0) && (
           <Card className="mt-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-              <CardDescription>
-                Your latest financial activities and calculations
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Recent Activity
+                  </CardTitle>
+                  <CardDescription>
+                    Your latest financial activities and calculations
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRecentActivity(!showRecentActivity)}
+                >
+                  {showRecentActivity ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Hide Activity
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                      Show Activity
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
+            {showRecentActivity && (
+              <CardContent>
               <div className="space-y-4">
                 {activeRecharges.map((recharge) => (
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -649,8 +701,44 @@ export default function Home() {
                     </Link>
                   </div>
                 ))}
+
+                {mfSipCalculations.map((calc) => (
+                  <div key={calc.id} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Target className="h-5 w-5 text-emerald-600" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{calc.name}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleMFSIPCalculation(calc.id)}
+                            className="h-6 w-6 p-0 hover:bg-emerald-100"
+                            title={calc.enabled ? "Exclude from monthly spend" : "Include in monthly spend"}
+                          >
+                            {calc.enabled ? (
+                              <Eye className="h-3 w-3 text-emerald-600" />
+                            ) : (
+                              <EyeOff className="h-3 w-3 text-gray-400" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          ₹{calc.amount} {calc.frequency} - {calc.duration} months
+                        </p>
+                        <p className="text-sm font-semibold text-green-600">
+                          Total Invested: ₹{calc.totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/mutual-funds">
+                      <Button variant="outline" size="sm">View</Button>
+                    </Link>
+                  </div>
+                ))}
               </div>
             </CardContent>
+            )}
           </Card>
         )}
       </div>

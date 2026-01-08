@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Upload, ArrowLeft, AlertCircle, CheckCircle, Copy, Eye, EyeOff } from "lucide-react";
-import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation } from "@/lib/types";
+import { Recharge, SIPCalculation, MFPurchase, WatchlistItem, Expense, XIRRCalculation, MFSIPCalculation } from "@/lib/types";
 import { FDCalculation } from "@/hooks/use-fd-calculations";
 import { LoanCalculation } from "@/hooks/use-loan-calculations";
 import { Bill } from "@/hooks/use-bills";
@@ -24,6 +24,7 @@ interface ExportData {
   xirrCalculations?: XIRRCalculation[];
   mfWatchlist?: WatchlistItem[];
   mfPurchases?: MFPurchase[];
+  mfSipCalculations?: MFSIPCalculation[];
   exportDate: string;
   version: string;
 }
@@ -38,6 +39,7 @@ interface ExportSelections {
   xirrCalculations: boolean;
   mfWatchlist: boolean;
   mfPurchases: boolean;
+  mfSipCalculations: boolean;
 }
 
 export default function ExportPage() {
@@ -45,6 +47,8 @@ export default function ExportPage() {
   const [importMessage, setImportMessage] = useState('');
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const [jsonImportText, setJsonImportText] = useState('');
+  const [showBackups, setShowBackups] = useState(false);
+  const [backups, setBackups] = useState<any[]>([]);
   const [exportSelections, setExportSelections] = useState<ExportSelections>({
     recharges: true,
     sipCalculations: true,
@@ -55,6 +59,7 @@ export default function ExportPage() {
     xirrCalculations: true,
     mfWatchlist: true,
     mfPurchases: true,
+    mfSipCalculations: true,
   });
   const [showExportText, setShowExportText] = useState(false);
   const [exportJsonText, setExportJsonText] = useState('');
@@ -81,6 +86,81 @@ export default function ExportPage() {
     };
     localStorage.setItem('export-import-preferences', JSON.stringify(preferences));
   }, [importMode]);
+
+  // Load backups on component mount
+  useEffect(() => {
+    const storedBackups = localStorage.getItem('database-backups');
+    if (storedBackups) {
+      try {
+        setBackups(JSON.parse(storedBackups));
+      } catch (error) {
+        console.error('Failed to load backups:', error);
+      }
+    }
+  }, []);
+
+  // Function to create a backup
+  const createBackup = () => {
+    const backupData = generateExportData();
+    const newBackup = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      data: backupData
+    };
+
+    const updatedBackups = [newBackup, ...backups.slice(0, 4)]; // Keep only last 5
+    setBackups(updatedBackups);
+    localStorage.setItem('database-backups', JSON.stringify(updatedBackups));
+  };
+
+  // Function to restore from backup
+  const restoreFromBackup = (backupId: string) => {
+    const backup = backups.find(b => b.id === backupId);
+    if (!backup) return;
+
+    if (confirm('Are you sure you want to restore from this backup? This will replace all current data.')) {
+      const backupData = backup.data;
+
+      // Apply the backup data using the same logic as import
+      const safeImportData = {
+        recharges: backupData.recharges || [],
+        sipCalculations: (backupData.sipCalculations || []).map((calc: SIPCalculation) => ({
+          ...calc,
+          enabled: calc.enabled ?? true
+        })),
+        fdCalculations: backupData.fdCalculations || [],
+        loanCalculations: backupData.loanCalculations || [],
+        bills: backupData.bills || [],
+        expenses: backupData.expenses || [],
+        xirrCalculations: backupData.xirrCalculations || [],
+        mfWatchlist: backupData.mfWatchlist || [],
+        mfPurchases: backupData.mfPurchases || [],
+        mfSipCalculations: (backupData.mfSipCalculations || []).map((calc: MFSIPCalculation) => ({
+          ...calc,
+          enabled: calc.enabled ?? true
+        })),
+      };
+
+      // Apply to localStorage
+      Object.entries(safeImportData).forEach(([key, value]) => {
+        if (Array.isArray(value) && value.length > 0) {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          localStorage.removeItem(key);
+        }
+      });
+
+      setImportStatus('success');
+      setImportMessage('Successfully restored from backup. Please refresh the page to see the changes.');
+    }
+  };
+
+  // Function to delete a backup
+  const deleteBackup = (backupId: string) => {
+    const updatedBackups = backups.filter(b => b.id !== backupId);
+    setBackups(updatedBackups);
+    localStorage.setItem('database-backups', JSON.stringify(updatedBackups));
+  };
 
   const generateExportData = useCallback((): ExportData => {
     const exportData: ExportData = {
@@ -116,6 +196,9 @@ export default function ExportPage() {
     if (exportSelections.mfPurchases) {
       exportData.mfPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
     }
+    if (exportSelections.mfSipCalculations) {
+      exportData.mfSipCalculations = JSON.parse(localStorage.getItem('mf-sip-calculations') || '[]');
+    }
 
     return exportData;
   }, [exportSelections]);
@@ -142,6 +225,9 @@ export default function ExportPage() {
     try {
       const exportData = generateExportData();
 
+      // Create backup before exporting
+      createBackup();
+
       // Create and download JSON file
       const dataStr = JSON.stringify(exportData, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
@@ -154,12 +240,12 @@ export default function ExportPage() {
       linkElement.click();
 
       setImportStatus('success');
-      setImportMessage('Data exported successfully!');
+      setImportMessage('Data exported successfully! A backup was also created.');
     } catch {
       setImportStatus('error');
       setImportMessage('Failed to export data. Please try again.');
     }
-  }, [generateExportData]);
+  }, [generateExportData, createBackup]);
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -190,6 +276,10 @@ export default function ExportPage() {
           xirrCalculations: importData.xirrCalculations || [],
           mfWatchlist: importData.mfWatchlist || [],
           mfPurchases: importData.mfPurchases || [],
+          mfSipCalculations: (importData.mfSipCalculations || []).map(calc => ({
+            ...calc,
+            enabled: calc.enabled ?? true // Add enabled field for backward compatibility
+          })),
           exportDate: importData.exportDate,
           version: importData.version || '1.0'
         };
@@ -206,6 +296,7 @@ export default function ExportPage() {
             xirrCalculations: safeImportData.xirrCalculations.length,
             mfWatchlist: safeImportData.mfWatchlist.length,
             mfPurchases: safeImportData.mfPurchases.length,
+            mfSipCalculations: safeImportData.mfSipCalculations.length,
           };
 
           if (counts.recharges > 0) {
@@ -262,8 +353,14 @@ export default function ExportPage() {
             localStorage.removeItem('mf-purchases');
           }
 
+          if (counts.mfSipCalculations > 0) {
+            localStorage.setItem('mf-sip-calculations', JSON.stringify(safeImportData.mfSipCalculations));
+          } else {
+            localStorage.removeItem('mf-sip-calculations');
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully replaced data with ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, and ${counts.mfPurchases} MF purchases. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully replaced data with ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, ${counts.mfPurchases} MF purchases, and ${counts.mfSipCalculations} MF SIP calculations. Please refresh the page to see the changes.`);
         } else {
           // Append mode - merge with existing data
           const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -275,6 +372,7 @@ export default function ExportPage() {
           const existingXIRRCalculations = JSON.parse(localStorage.getItem('xirr-calculations') || '[]');
           const existingMFWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
           const existingMFPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
+          const existingMFSIPCalculations = JSON.parse(localStorage.getItem('mf-sip-calculations') || '[]');
 
           // Generate new IDs for imported data to avoid conflicts
           const mergedRecharges = [
@@ -349,6 +447,14 @@ export default function ExportPage() {
             }))
           ];
 
+          const mergedMFSIPCalculations = [
+            ...existingMFSIPCalculations,
+            ...safeImportData.mfSipCalculations.map(calc => ({
+              ...calc,
+              id: crypto.randomUUID() // Generate new ID
+            }))
+          ];
+
           const counts = {
             recharges: safeImportData.recharges.length,
             sipCalculations: safeImportData.sipCalculations.length,
@@ -359,6 +465,7 @@ export default function ExportPage() {
             xirrCalculations: safeImportData.xirrCalculations.length,
             mfWatchlist: safeImportData.mfWatchlist.length,
             mfPurchases: safeImportData.mfPurchases.length,
+            mfSipCalculations: safeImportData.mfSipCalculations.length,
           };
 
           if (mergedRecharges.length > 0) {
@@ -397,8 +504,12 @@ export default function ExportPage() {
             localStorage.setItem('mf-purchases', JSON.stringify(mergedMFPurchases));
           }
 
+          if (mergedMFSIPCalculations.length > 0) {
+            localStorage.setItem('mf-sip-calculations', JSON.stringify(mergedMFSIPCalculations));
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully appended ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, and ${counts.mfPurchases} MF purchases to existing data. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully appended ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, ${counts.mfPurchases} MF purchases, and ${counts.mfSipCalculations} MF SIP calculations to existing data. Please refresh the page to see the changes.`);
         }
 
         // Clear the file input
@@ -443,6 +554,10 @@ export default function ExportPage() {
         xirrCalculations: importData.xirrCalculations || [],
         mfWatchlist: importData.mfWatchlist || [],
         mfPurchases: importData.mfPurchases || [],
+        mfSipCalculations: (importData.mfSipCalculations || []).map(calc => ({
+          ...calc,
+          enabled: calc.enabled ?? true // Add enabled field for backward compatibility
+        })),
         exportDate: importData.exportDate,
         version: importData.version || '1.0'
       };
@@ -479,8 +594,38 @@ export default function ExportPage() {
           localStorage.removeItem('bills');
         }
 
+        if (safeImportData.expenses.length > 0) {
+          localStorage.setItem('expenses', JSON.stringify(safeImportData.expenses));
+        } else {
+          localStorage.removeItem('expenses');
+        }
+
+        if (safeImportData.xirrCalculations.length > 0) {
+          localStorage.setItem('xirr-calculations', JSON.stringify(safeImportData.xirrCalculations));
+        } else {
+          localStorage.removeItem('xirr-calculations');
+        }
+
+        if (safeImportData.mfWatchlist.length > 0) {
+          localStorage.setItem('mf-watchlist', JSON.stringify(safeImportData.mfWatchlist));
+        } else {
+          localStorage.removeItem('mf-watchlist');
+        }
+
+        if (safeImportData.mfPurchases.length > 0) {
+          localStorage.setItem('mf-purchases', JSON.stringify(safeImportData.mfPurchases));
+        } else {
+          localStorage.removeItem('mf-purchases');
+        }
+
+        if (safeImportData.mfSipCalculations.length > 0) {
+          localStorage.setItem('mf-sip-calculations', JSON.stringify(safeImportData.mfSipCalculations));
+        } else {
+          localStorage.removeItem('mf-sip-calculations');
+        }
+
         setImportStatus('success');
-        setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills. Please refresh the page to see the changes.`);
+        setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, ${safeImportData.bills.length} bills, ${safeImportData.expenses.length} expenses, ${safeImportData.xirrCalculations.length} XIRR calculations, ${safeImportData.mfWatchlist.length} MF watchlist items, ${safeImportData.mfPurchases.length} MF purchases, and ${safeImportData.mfSipCalculations.length} MF SIP calculations. Please refresh the page to see the changes.`);
       } else {
         // Append mode - merge with existing data
         const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -690,15 +835,23 @@ export default function ExportPage() {
                        />
                        <Label htmlFor="export-mf-watchlist" className="text-sm">MF Watchlist</Label>
                      </div>
-                     <div className="flex items-center space-x-2">
-                       <Checkbox
-                         id="export-mf-purchases"
-                         checked={exportSelections.mfPurchases}
-                         onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfPurchases: checked }))}
-                       />
-                       <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
-                     </div>
-                   </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="export-mf-purchases"
+                          checked={exportSelections.mfPurchases}
+                          onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfPurchases: checked }))}
+                        />
+                        <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="export-mf-sip"
+                          checked={exportSelections.mfSipCalculations}
+                          onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfSipCalculations: checked }))}
+                        />
+                        <Label htmlFor="export-mf-sip" className="text-sm">MF SIP Calculations</Label>
+                      </div>
+                    </div>
                  </div>
                  <div className="flex gap-2">
                    <Button onClick={exportData} className="flex-1">
@@ -831,6 +984,74 @@ export default function ExportPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Database Backups
+                </CardTitle>
+                <CardDescription>
+                  Automatic backups created on export. Restore to any of the last 5 database states.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBackups(!showBackups)}
+              >
+                {showBackups ? 'Hide Backups' : 'Show Backups'}
+              </Button>
+            </div>
+          </CardHeader>
+          {showBackups && (
+            <CardContent>
+              {backups.length === 0 ? (
+                <p className="text-muted-foreground">No backups available. Export your data to create the first backup.</p>
+              ) : (
+                <div className="space-y-3">
+                  {backups.map((backup, index) => (
+                    <div key={backup.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">
+                          Backup #{backups.length - index}
+                          {index === 0 && <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Latest</span>}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(backup.timestamp).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Contains: {backup.data.recharges?.length || 0} recharges,
+                          {backup.data.sipCalculations?.length || 0} SIP calcs,
+                          {backup.data.mfSipCalculations?.length || 0} MF SIP calcs
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => restoreFromBackup(backup.id)}
+                          className="text-xs"
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => deleteBackup(backup.id)}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
 
         <Card className="mt-6 border-red-200">
           <CardHeader>

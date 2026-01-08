@@ -22,13 +22,14 @@ export interface RechargeFormData {
   inputMode: 'startAndDuration' | 'endAndDuration' | 'startAndEnd';
 }
 
-export type SIPFrequency = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type SIPFrequency = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
 
 export interface SIPCalculation {
   id: string;
   name: string;
   amount: number;
   frequency: SIPFrequency;
+  customDays?: number; // Number of days for custom frequency
   startDate: Date;
   duration: number; // in months
   totalInvested: number;
@@ -159,4 +160,31 @@ export interface MFPurchase {
 export interface MFPurchaseFormData {
   purchaseDate: Date;
   amount: number;
+}
+
+export interface MFSIPCalculation {
+  id: string;
+  schemeCode: number;
+  name: string;
+  amount: number;
+  frequency: SIPFrequency;
+  customDays?: number; // Number of days for custom frequency
+  startDate: Date;
+  duration: number; // in months
+  totalInvested: number;
+  totalInstallments: number;
+  xirr?: number; // Expected rate of return (percentage)
+  futureValue?: number; // Future value at XIRR
+  enabled: boolean; // Whether to include in monthly spend calculations
+  createdAt: Date;
+}
+
+export interface MFSIPFormData {
+  name: string;
+  amount: number;
+  frequency: SIPFrequency;
+  startDate: Date;
+  duration: number;
+  xirr?: number;
+  enabled?: boolean;
 }

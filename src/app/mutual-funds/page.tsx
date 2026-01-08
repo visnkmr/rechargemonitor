@@ -6,8 +6,10 @@ import { MutualFundSearch } from "@/components/mutual-fund-search";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
 import { MutualFundMiniChart } from "@/components/mutual-fund-mini-chart";
 import { MFPurchaseTracker } from "@/components/mf-purchase-tracker";
+import { MFFinancialTracker } from "@/components/mf-financial-tracker";
 import { MFAllPurchases } from "@/components/mf-all-purchases";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
+import { useMFSIPCalculations } from "@/hooks/use-mf-sip-calculations";
 import { MutualFundWithHistory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,15 @@ export default function MutualFundsPage() {
     deletePurchase,
     getPurchasesForFund
   } = useMutualFunds();
+
+  const {
+    calculations: mfSipCalculations,
+    addCalculation: addMFSIPCalculation,
+    updateCalculation: updateMFSIPCalculation,
+    deleteCalculation: deleteMFSIPCalculation,
+    toggleCalculation: toggleMFSIPCalculation,
+    getCalculationsForFund: getMFSIPCalculationsForFund
+  } = useMFSIPCalculations();
 
   const [showMiniCharts, setShowMiniCharts] = useState(false);
   const [searchSelectedFunds, setSearchSelectedFunds] = useState<MutualFundWithHistory[]>([]);
@@ -222,19 +233,24 @@ export default function MutualFundsPage() {
                   Search Another Fund
                 </Button>
               </div>
-              <MutualFundChart
-                fund={selectedFund}
-                addToWatchlist={addToWatchlist}
-                removeFromWatchlist={removeFromWatchlist}
-                isInWatchlist={isInWatchlist}
-              />
-              <MFPurchaseTracker
-                fund={selectedFund}
-                purchases={getPurchasesForFund(selectedFund.schemeCode)}
-                onAddPurchase={addPurchase}
-                onUpdatePurchase={updatePurchase}
-                onDeletePurchase={deletePurchase}
-              />
+               <MutualFundChart
+                 fund={selectedFund}
+                 addToWatchlist={addToWatchlist}
+                 removeFromWatchlist={removeFromWatchlist}
+                 isInWatchlist={isInWatchlist}
+               />
+               <MFFinancialTracker
+                 fund={selectedFund}
+                 purchases={getPurchasesForFund(selectedFund.schemeCode)}
+                 sipCalculations={getMFSIPCalculationsForFund(selectedFund.schemeCode)}
+                 onAddPurchase={addPurchase}
+                 onUpdatePurchase={updatePurchase}
+                 onDeletePurchase={deletePurchase}
+                 onAddSIPCalculation={addMFSIPCalculation}
+                 onUpdateSIPCalculation={updateMFSIPCalculation}
+                 onDeleteSIPCalculation={deleteMFSIPCalculation}
+                 onToggleSIPCalculation={toggleMFSIPCalculation}
+               />
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow p-8 text-center">

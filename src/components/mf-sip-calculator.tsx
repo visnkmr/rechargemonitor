@@ -11,13 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateInput } from "@/components/ui/date-input";
-import { sipSchema, type SIPFormValues } from "@/lib/schemas";
-import { SIPCalculation, SIPFrequency } from "@/lib/types";
+import { mfSipSchema, type MFSIPFormValues } from "@/lib/schemas";
+import { MFSIPCalculation, SIPFrequency, MutualFundWithHistory } from "@/lib/types";
 import { calculateSIPFutureValue, getPeriodsPerYear } from "@/lib/financial-utils";
 
-interface SIPCalculatorProps {
-  onSaveCalculation: (calculation: SIPCalculation) => void;
-  editingCalculation?: SIPCalculation | null;
+interface MFSIPCalculatorProps {
+  fund: MutualFundWithHistory;
+  onSaveCalculation: (calculation: MFSIPCalculation) => void;
+  editingCalculation?: MFSIPCalculation | null;
   onCancelEdit?: () => void;
 }
 
@@ -31,8 +32,8 @@ const FREQUENCY_OPTIONS = [
   { value: 'custom', label: 'Custom (days)' },
 ] as const;
 
-export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelEdit }: SIPCalculatorProps) {
-  const [calculation, setCalculation] = useState<SIPCalculation | null>(null);
+export function MFSIPCalculator({ fund, onSaveCalculation, editingCalculation, onCancelEdit }: MFSIPCalculatorProps) {
+  const [calculation, setCalculation] = useState<MFSIPCalculation | null>(null);
 
   const {
     register,
@@ -41,8 +42,8 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     setValue,
     watch,
     reset,
-  } = useForm<SIPFormValues>({
-    resolver: zodResolver(sipSchema),
+  } = useForm<MFSIPFormValues>({
+    resolver: zodResolver(mfSipSchema),
     defaultValues: {
       startDate: new Date(),
       frequency: 'monthly',
@@ -66,12 +67,12 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       duration: watchedDuration,
       xirr: watchedXirr,
     };
-    localStorage.setItem('sip-calculator-form', JSON.stringify(formData));
-  }, [watchedDate, watchedAmount, watchedFrequency, watchedDuration, watchedXirr, watch]);
+    localStorage.setItem(`mf-sip-calculator-${fund.schemeCode}-form`, JSON.stringify(formData));
+  }, [watchedDate, watchedAmount, watchedFrequency, watchedDuration, watchedXirr, fund.schemeCode, watch]);
 
   // Load saved values on mount
   useEffect(() => {
-    const saved = localStorage.getItem('sip-calculator-form');
+    const saved = localStorage.getItem(`mf-sip-calculator-${fund.schemeCode}-form`);
     if (saved) {
       try {
         const formData = JSON.parse(saved);
@@ -82,10 +83,10 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
         if (formData.duration) setValue("duration", formData.duration);
         if (formData.xirr) setValue("xirr", formData.xirr);
       } catch (error) {
-        console.error('Failed to load SIP calculator form data:', error);
+        console.error('Failed to load MF SIP calculator form data:', error);
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fund.schemeCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle editing mode
   useEffect(() => {
@@ -186,7 +187,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
 
   const realTimeTotal = calculateRealTimeTotal();
 
-  const calculateSIP = (data: SIPFormValues) => {
+  const calculateMFSIP = (data: MFSIPFormValues) => {
     const { amount, frequency, customDays, startDate, duration, xirr, enabled = true } = data;
 
     // Calculate number of installments per month
@@ -231,8 +232,9 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       futureValue = calculateSIPFutureValue(amount, xirr, periodsPerYear, totalInstallments);
     }
 
-    const sipCalculation: SIPCalculation = {
+    const mfSipCalculation: MFSIPCalculation = {
       id: editingCalculation?.id || crypto.randomUUID(),
+      schemeCode: fund.schemeCode,
       name: data.name,
       amount,
       frequency,
@@ -243,12 +245,12 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       totalInstallments,
       xirr,
       futureValue,
-      enabled: enabled, // Use the form value
+      enabled: enabled,
       createdAt: editingCalculation?.createdAt || new Date(),
     };
 
-    setCalculation(sipCalculation);
-    onSaveCalculation(sipCalculation);
+    setCalculation(mfSipCalculation);
+    onSaveCalculation(mfSipCalculation);
 
     // If editing, call cancel edit callback
     if (editingCalculation && onCancelEdit) {
@@ -273,24 +275,24 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       <Card>
         <CardHeader>
           <CardTitle>
-            {editingCalculation ? `Edit SIP: ${editingCalculation.name}` : 'SIP Calculator'}
+            {editingCalculation ? `Edit SIP: ${editingCalculation.name}` : `SIP Calculator for ${fund.name}`}
           </CardTitle>
           <CardDescription>
             {editingCalculation
               ? 'Update your Systematic Investment Plan calculation.'
-              : 'Calculate your Systematic Investment Plan totals and track your investment history.'
+              : 'Set up automatic investments in this mutual fund.'
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(calculateSIP)} className="space-y-4">
+          <form onSubmit={handleSubmit(calculateMFSIP)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Plan Name</Label>
                 <Input
                   id="name"
                   {...register("name")}
-                  placeholder="e.g., Monthly SIP"
+                  placeholder={`SIP in ${fund.name.slice(0, 20)}...`}
                 />
                 {errors.name && (
                   <p className="text-sm text-red-500">{errors.name.message}</p>
@@ -388,10 +390,10 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                  {errors.xirr && (
                    <p className="text-sm text-red-500">{errors.xirr.message}</p>
                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Optional: Expected annual return rate to calculate future value
-                  </p>
-                </div>
+                 <p className="text-xs text-muted-foreground">
+                   Optional: Expected annual return rate to calculate future value
+                 </p>
+               </div>
              </div>
 
              <div className="flex items-center space-x-2">
@@ -409,7 +411,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
 
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                <Button type="submit">{editingCalculation ? 'Update' : 'Save'}</Button>
+                <Button type="submit">{editingCalculation ? 'Update' : 'Save SIP'}</Button>
                 <Button type="button" variant="outline" onClick={resetCalculator}>
                   {editingCalculation ? 'Cancel' : 'Reset'}
                 </Button>
@@ -420,7 +422,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                     {watchedXirr && watchedXirr > 0 ? `Future Value (${watchedXirr}% XIRR)` : 'Total Invested'}
                   </p>
                   <p className="text-lg font-semibold text-green-600">
-                    {realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹{realTimeTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
@@ -432,14 +434,15 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       {calculation && (
         <Card>
           <CardHeader>
-            <CardTitle>Calculation Result</CardTitle>
+            <CardTitle>SIP Calculation Result</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h3 className="font-semibold mb-2">Investment Details</h3>
+                <p><strong>Fund:</strong> {fund.name}</p>
                 <p><strong>Plan Name:</strong> {calculation.name}</p>
-                <p><strong>Amount per installment:</strong> {calculation.amount.toFixed(2)}</p>
+                <p><strong>Amount per installment:</strong> ₹{calculation.amount.toFixed(2)}</p>
                 <p><strong>Frequency:</strong> {calculation.frequency}</p>
                 <p><strong>Start Date:</strong> {format(calculation.startDate, "PPP")}</p>
                 <p><strong>Duration:</strong> {calculation.duration} months</p>
@@ -447,9 +450,9 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                <div>
                  <h3 className="font-semibold mb-2">Results</h3>
                  <p><strong>Total Installments:</strong> {calculation.totalInstallments}</p>
-                 <p><strong>Total Amount Invested:</strong> {calculation.totalInvested.toFixed(2)}</p>
+                 <p><strong>Total Amount Invested:</strong> ₹{calculation.totalInvested.toFixed(2)}</p>
                  {calculation.futureValue && calculation.xirr && (
-                   <p><strong>Future Value at {calculation.xirr}% XIRR:</strong> {calculation.futureValue.toFixed(2)}</p>
+                   <p><strong>Future Value at {calculation.xirr}% XIRR:</strong> ₹{calculation.futureValue.toFixed(2)}</p>
                  )}
                  <p className="text-sm text-muted-foreground">
                    End Date: {format(addMonths(calculation.startDate, calculation.duration), "PPP")}
