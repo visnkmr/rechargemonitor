@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Smartphone,
   Calculator,
@@ -18,8 +19,10 @@ import {
   Wallet,
   Receipt,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertTriangle
 } from "lucide-react";
+import { differenceInDays } from "date-fns";
 import { useRecharges } from "@/hooks/use-recharges";
 import { useSIPCalculations } from "@/hooks/use-sip-calculations";
 import { useFDCalculations } from "@/hooks/use-fd-calculations";
@@ -43,6 +46,12 @@ export default function Home() {
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
+  const expiredRecharges = recharges
+    .filter(r => r.remainingDays <= 0)
+    .map(r => ({
+      ...r,
+      daysExpired: differenceInDays(new Date(), r.rechargeDate) - r.planDays
+    }));
   const totalRechargeValue = recharges.reduce((sum, r) => sum + r.lastRechargeAmount, 0);
   const totalSIPInvested = sipCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
   const totalFDInvested = fdCalculations.reduce((sum, calc) => sum + calc.principal, 0);
@@ -272,6 +281,36 @@ export default function Home() {
             </span>
           </div>
         </header>
+
+        {/* Expired Recharges Alert */}
+        {expiredRecharges.length > 0 && (
+          <Alert className="mb-8 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800">Expired Recharges</AlertTitle>
+            <AlertDescription className="text-red-700">
+              <div className="space-y-2 mt-2">
+                {expiredRecharges.map((recharge) => (
+                  <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="h-5 w-5 text-red-600" />
+                      <div>
+                        <p className="font-medium text-red-800">{recharge.nickname}</p>
+                        <p className="text-sm text-red-600">
+                          Expired {recharge.daysExpired} day{recharge.daysExpired !== 1 ? 's' : ''} ago
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/recharges">
+                      <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50">
+                        Recharge
+                      </Button>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Quick Stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 mb-8">
