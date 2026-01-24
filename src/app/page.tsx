@@ -49,6 +49,7 @@ export default function Home() {
   const [showWatchlistCharts, setShowWatchlistCharts] = useState(false);
   const [showQuickStats, setShowQuickStats] = useState(true);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
+  const [showItools, setShowItools] = useState(false);
 
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
@@ -157,9 +158,8 @@ export default function Home() {
       bgColor: "bg-teal-50",
     },
   ];
-
-  const tools = [
-    {
+  const investments=[
+{
       title: "Mutual Funds",
       description: "Search and analyze mutual fund performance with XIRR",
       href: "/mutual-funds",
@@ -168,16 +168,7 @@ export default function Home() {
       color: "text-emerald-600",
       bgColor: "bg-emerald-50",
     },
-    {
-      title: "Recharge Monitor",
-      description: "Track mobile recharges and active plans",
-      href: "/recharges",
-      icon: Smartphone,
-      stats: `${activeRecharges.length} active`,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-    },
-    {
+     {
       title: "SIP Calculator",
       description: "Calculate Systematic Investment Plan returns",
       href: "/sip",
@@ -213,16 +204,7 @@ export default function Home() {
       color: "text-cyan-600",
       bgColor: "bg-cyan-50",
     },
-    {
-      title: "Bill Manager",
-      description: "Track recurring bills and expenses",
-      href: "/bills",
-      icon: Receipt,
-      stats: `${bills.length} bills`,
-      color: "text-teal-600",
-      bgColor: "bg-teal-50",
-    },
-     {
+      {
        title: "Expense Amortization",
        description: "Track one-time expenses and their amortized costs",
        href: "/expenses",
@@ -240,6 +222,29 @@ export default function Home() {
        color: "text-green-600",
        bgColor: "bg-green-50",
      },
+  ]
+  const tools = [
+    
+    {
+      title: "Recharge Monitor",
+      description: "Track mobile recharges and active plans",
+      href: "/recharges",
+      icon: Smartphone,
+      stats: `${activeRecharges.length} active`,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+    },
+   
+    {
+      title: "Bill Manager",
+      description: "Track recurring bills and expenses",
+      href: "/bills",
+      icon: Receipt,
+      stats: `${bills.length} bills`,
+      color: "text-teal-600",
+      bgColor: "bg-teal-50",
+    },
+   
      {
        title: "Export/Import",
        description: "Backup and restore your data",
@@ -273,10 +278,18 @@ export default function Home() {
         {/* Expired Recharges Alert */}
         {expiredRecharges.length > 0 && (
           <Alert className="mb-8 border-red-200 bg-red-50">
+            <div className="flex flex-row gap-2 items-center pb-3">
             <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="text-red-800">Expired Recharges</AlertTitle>
+
+            <AlertTitle className="text-red-800">Recharges Info</AlertTitle>
+            <Link href="/recharges">
+                      <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50">
+                        Recharge
+                      </Button>
+                    </Link>
+            </div>
             <AlertDescription className="text-red-700">
-              <div className="space-y-2 mt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {expiredRecharges.map((recharge) => (
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
                     <div className="flex items-center gap-3">
@@ -288,11 +301,20 @@ export default function Home() {
                         </p>
                       </div>
                     </div>
-                    <Link href="/recharges">
-                      <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50">
-                        Recharge
-                      </Button>
-                    </Link>
+                  </div>
+                ))}
+                {activeRecharges.map((recharge) => (
+                  <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-800">{recharge.nickname}</p>
+                        <p className="text-sm text-green-600">
+                          {recharge.remainingDays} day{recharge.remainingDays !== 1 ? 's' : ''} remaining
+                        </p>
+                      </div>
+                    </div>
+                    
                   </div>
                 ))}
               </div>
@@ -300,65 +322,7 @@ export default function Home() {
           </Alert>
         )}
 
-        {/* Quick Stats */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Quick Stats
-                </CardTitle>
-                <CardDescription>
-                  Overview of your financial activities
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowQuickStats(!showQuickStats)}
-              >
-                {showQuickStats ? (
-                  <>
-                    <ChevronUp className="h-4 w-4 mr-2" />
-                    Hide Stats
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4 mr-2" />
-                    Show Stats
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          {showQuickStats && (
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                {quickStats.map((stat, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            {stat.title}
-                          </p>
-                          <p className="text-2xl font-bold">{stat.value}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {stat.description}
-                          </p>
-                        </div>
-                        <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                          <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          )}
-         </Card>
+        
 
         {/* Financial Summary */}
         {(totalRechargeValue > 0 || totalSIPInvested > 0 || totalFDInvested > 0) && (
@@ -373,7 +337,7 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {totalRechargeValue > 0 && (
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Total Recharges</p>
@@ -409,98 +373,9 @@ export default function Home() {
           </Card>
         )}
 
-        {/* Watchlist Charts */}
-        {watchlist.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Watchlist Performance
-                  </CardTitle>
-                  <CardDescription>
-                    Performance charts for your saved mutual funds
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowWatchlistCharts(!showWatchlistCharts)}
-                >
-                  {showWatchlistCharts ? (
-                    <>
-                      <EyeOff className="h-4 w-4 mr-2" />
-                      Hide Charts
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Show Charts
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardHeader>
-            {showWatchlistCharts && (
-              <CardContent>
-                <div className="space-y-8">
-                  {watchlistFunds.map((fund) => (
-                    <div key={fund.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold">{fund.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {fund.fundHouse} • {fund.category}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold">₹{fund.currentNav.toFixed(2)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {fund.navDate.toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <MutualFundChart fund={fund} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        )}
-
-        {/* Tools Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {tools.map((tool, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className={`p-2 rounded-lg ${tool.bgColor}`}>
-                    <tool.icon className={`h-6 w-6 ${tool.color}`} />
-                  </div>
-                  <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-600 border">
-                    {tool.stats}
-                  </span>
-                </div>
-                <CardTitle className="text-xl">{tool.title}</CardTitle>
-                <CardDescription>{tool.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href={tool.href}>
-                  <Button className="w-full">
-                    Open Tool
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
         {/* Recent Activity */}
         {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0 || expenses.length > 0) && (
-          <Card className="mt-8">
+          <Card className="mb-8">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
@@ -533,7 +408,7 @@ export default function Home() {
             </CardHeader>
             {showRecentActivity && (
               <CardContent>
-              <div className="space-y-4">
+              <div className="grid md:grid-cols-3 gap-2">
                 {activeRecharges.map((recharge) => (
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-3">
@@ -741,6 +616,218 @@ export default function Home() {
             )}
           </Card>
         )}
+
+        {/* Watchlist Charts */}
+        {watchlist.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Watchlist Performance
+                  </CardTitle>
+                  <CardDescription>
+                    Performance charts for your saved mutual funds
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowWatchlistCharts(!showWatchlistCharts)}
+                >
+                  {showWatchlistCharts ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Hide Charts
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Show Charts
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {showWatchlistCharts && (
+              <CardContent>
+                <div className="space-y-8">
+                  {watchlistFunds.map((fund) => (
+                    <div key={fund.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">{fund.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {fund.fundHouse} • {fund.category}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold">₹{fund.currentNav.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fund.navDate.toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <MutualFundChart fund={fund} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* Tools Grid */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+          {tools.map((tool, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-lg ${tool.bgColor}`}>
+                    <tool.icon className={`h-6 w-6 ${tool.color}`} />
+                  </div>
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-600 border">
+                    {tool.stats}
+                  </span>
+                </div>
+                <CardTitle className="text-xl">{tool.title}</CardTitle>
+                <CardDescription>{tool.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href={tool.href}>
+                  <Button className="w-full">
+                    Open Tool
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div> 
+        
+        <Card className="mt-8">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Show Investment tools
+                  </CardTitle>
+                  <CardDescription>
+                    Tools to calc investment returns in various financial instruments
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowItools(!showItools)}
+                >
+                  {showItools ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Hide Activity
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                      Show Activity
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+        {/* Investments Grid */}
+        {showItools && <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {investments.map((tool, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-lg ${tool.bgColor}`}>
+                    <tool.icon className={`h-6 w-6 ${tool.color}`} />
+                  </div>
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-600 border">
+                    {tool.stats}
+                  </span>
+                </div>
+                <CardTitle className="text-xl">{tool.title}</CardTitle>
+                <CardDescription>{tool.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href={tool.href}>
+                  <Button className="w-full">
+                    Open Tool
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>}
+        </CardContent>
+        </Card>
+
+        
+        {/* Quick Stats */}
+        <Card className="mt-8">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Quick Stats
+                </CardTitle>
+                <CardDescription>
+                  Overview of your financial activities
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQuickStats(!showQuickStats)}
+              >
+                {showQuickStats ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-2" />
+                    Hide Stats
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                    Show Stats
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {showQuickStats && (
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                {quickStats.map((stat, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {stat.title}
+                          </p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {stat.description}
+                          </p>
+                        </div>
+                        <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                          <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          )}
+         </Card>
       </div>
     </div>
   );
