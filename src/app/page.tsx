@@ -222,6 +222,47 @@ export default function Home() {
        color: "text-green-600",
        bgColor: "bg-green-50",
      },
+     {
+       title: "expense monitor",
+       description: "finance tracker",
+       href: "https://visnkmr.github.io/fingraph",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },{
+       title: "gold bond tracker",
+       description: "Local only gold bond price tracker for educational use only.",
+       href: "https://github.com/visnkmr/candlereplaytest/tree/trendanalysis/src/app/gold-bonds",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },{
+       title: "equitywallet",
+       description: "stock tag and monitor portfolio per tag",
+       href: "https://visnkmr.github.io/equitywallet",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },{
+       title: "mf tracker",
+       description: "for educational use only.",
+       href: "https://visnkmr.github.io/fundwallet",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },{
+       title: "custom0d",
+       description: "chrome extension for educational use only.",
+       href: "https://github.com/visnkmr/custom0d",
+       icon: TrendingUp,
+       stats: "Strategy Tool",
+       color: "text-green-600",
+       bgColor: "bg-green-50",
+     },
   ]
   const tools = [
     
