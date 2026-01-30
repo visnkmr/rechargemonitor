@@ -258,6 +258,15 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     setCalculation(sipCalculation);
     onSaveCalculation(sipCalculation);
 
+    // Reset form to default values after save
+    reset({
+      startDate: new Date(),
+      frequency: 'monthly',
+      type: 'real',
+      enabled: true,
+    });
+    setCalculation(null);
+
     // If editing, call cancel edit callback
     if (editingCalculation && onCancelEdit) {
       onCancelEdit();
@@ -309,8 +318,8 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
               <div className="space-y-2">
                 <Label>Type</Label>
                 <Select
+                  value={watchedType || 'real'}
                   onValueChange={(value: SIPType) => setValue("type", value)}
-                  defaultValue="real"
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
