@@ -24,9 +24,12 @@ export interface RechargeFormData {
 
 export type SIPFrequency = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
 
+export type SIPType = 'conceptual' | 'real';
+
 export interface SIPCalculation {
   id: string;
   name: string;
+  type?: SIPType;
   amount: number;
   frequency: SIPFrequency;
   customDays?: number; // Number of days for custom frequency
@@ -42,6 +45,7 @@ export interface SIPCalculation {
 
 export interface SIPFormData {
   name: string;
+  type: SIPType;
   amount: number;
   frequency: SIPFrequency;
   startDate: Date;

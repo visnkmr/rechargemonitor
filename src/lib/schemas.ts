@@ -26,6 +26,7 @@ export type RechargeFormValues = z.infer<typeof rechargeSchema>;
 
 export const sipSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  type: z.enum(['conceptual', 'real']),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom']),
   customDays: z.number().min(1, "Custom days must be at least 1").optional(),

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit } from "lucide-react";
 import { SIPCalculation } from "@/lib/types";
 import { format, addMonths } from "date-fns";
@@ -33,7 +34,12 @@ export function SIPHistory({ calculations, onDeleteCalculation, onEditCalculatio
         {calculations.map((calc) => (
           <Card key={calc.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg">{calc.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{calc.name}</CardTitle>
+                <Badge variant={(calc.type ?? 'real') === 'real' ? 'default' : 'secondary'}>
+                  {calc.type ?? 'real'}
+                </Badge>
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

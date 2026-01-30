@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateInput } from "@/components/ui/date-input";
 import { sipSchema, type SIPFormValues } from "@/lib/schemas";
-import { SIPCalculation, SIPFrequency } from "@/lib/types";
+import { SIPCalculation, SIPFrequency, SIPType } from "@/lib/types";
 import { calculateSIPFutureValue, getPeriodsPerYear } from "@/lib/financial-utils";
 
 interface SIPCalculatorProps {
@@ -46,6 +46,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     defaultValues: {
       startDate: new Date(),
       frequency: 'monthly',
+      type: 'real',
     },
   });
 
@@ -55,11 +56,13 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const watchedDuration = watch("duration");
   const watchedXirr = watch("xirr");
   const watchedCustomDays = watch("customDays");
+  const watchedType = watch("type");
 
   // Save form values to localStorage
   useEffect(() => {
     const formData = {
       name: watch("name"),
+      type: watchedType,
       amount: watchedAmount,
       frequency: watchedFrequency,
       startDate: watchedDate,
@@ -67,7 +70,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       xirr: watchedXirr,
     };
     localStorage.setItem('sip-calculator-form', JSON.stringify(formData));
-  }, [watchedDate, watchedAmount, watchedFrequency, watchedDuration, watchedXirr, watch]);
+  }, [watchedDate, watchedAmount, watchedFrequency, watchedDuration, watchedXirr, watchedType, watch]);
 
   // Load saved values on mount
   useEffect(() => {
@@ -76,6 +79,8 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       try {
         const formData = JSON.parse(saved);
         if (formData.name) setValue("name", formData.name);
+        // Always set type, defaulting to 'real' if not present
+        setValue("type", formData.type ?? 'real');
         if (formData.amount) setValue("amount", formData.amount);
         if (formData.frequency) setValue("frequency", formData.frequency);
         if (formData.startDate) setValue("startDate", new Date(formData.startDate));
@@ -92,6 +97,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     if (editingCalculation) {
       reset({
         name: editingCalculation.name,
+        type: editingCalculation.type ?? 'real',
         amount: editingCalculation.amount,
         frequency: editingCalculation.frequency,
         startDate: editingCalculation.startDate,
@@ -103,6 +109,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       reset({
         startDate: new Date(),
         frequency: 'monthly',
+        type: 'real',
         enabled: true,
       });
     }
@@ -187,19 +194,19 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
   const realTimeTotal = calculateRealTimeTotal();
 
   const calculateSIP = (data: SIPFormValues) => {
-    const { amount, frequency, customDays, startDate, duration, xirr, enabled = true } = data;
+    const { name, type, amount, frequency, customDays, startDate, duration, xirr, enabled = true } = data;
 
     // Calculate number of installments per month
     let installmentsPerMonth: number;
     switch (frequency) {
       case 'hourly':
-        installmentsPerMonth = 30 * 24; // Approximate
+        installmentsPerMonth = 30 * 24;
         break;
       case 'daily':
         installmentsPerMonth = 30;
         break;
       case 'weekly':
-        installmentsPerMonth = 4.33; // Approximate
+        installmentsPerMonth = 4.33;
         break;
       case 'monthly':
         installmentsPerMonth = 1;
@@ -212,7 +219,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
         break;
       case 'custom':
         if (customDays && customDays > 0) {
-          installmentsPerMonth = 30 / customDays; // e.g., every 5 days = 30/5 = 6 per month
+          installmentsPerMonth = 30 / customDays;
         } else {
           installmentsPerMonth = 1;
         }
@@ -233,7 +240,8 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
 
     const sipCalculation: SIPCalculation = {
       id: editingCalculation?.id || crypto.randomUUID(),
-      name: data.name,
+      name,
+      type,
       amount,
       frequency,
       customDays,
@@ -243,7 +251,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
       totalInstallments,
       xirr,
       futureValue,
-      enabled: enabled, // Use the form value
+      enabled: enabled,
       createdAt: editingCalculation?.createdAt || new Date(),
     };
 
@@ -260,6 +268,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
     reset({
       startDate: new Date(),
       frequency: 'monthly',
+      type: 'real',
       enabled: true,
     });
     setCalculation(null);
@@ -295,6 +304,25 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
                 {errors.name && (
                   <p className="text-sm text-red-500">{errors.name.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  onValueChange={(value: SIPType) => setValue("type", value)}
+                  defaultValue="real"
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="real">Real</SelectItem>
+                    <SelectItem value="conceptual">Conceptual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Real SIPs appear on homepage, conceptual are for planning only
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -439,6 +467,7 @@ export function SIPCalculator({ onSaveCalculation, editingCalculation, onCancelE
               <div>
                 <h3 className="font-semibold mb-2">Investment Details</h3>
                 <p><strong>Plan Name:</strong> {calculation.name}</p>
+                <p><strong>Type:</strong> {calculation.type}</p>
                 <p><strong>Amount per installment:</strong> {calculation.amount.toFixed(2)}</p>
                 <p><strong>Frequency:</strong> {calculation.frequency}</p>
                 <p><strong>Start Date:</strong> {format(calculation.startDate, "PPP")}</p>

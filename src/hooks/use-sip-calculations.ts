@@ -22,6 +22,7 @@ function loadSIPCalculationsFromStorage(): SIPCalculation[] {
         startDate: new Date(calc.startDate),
         createdAt: new Date(calc.createdAt),
         enabled: calc.enabled ?? true, // Default to enabled for existing calculations
+        type: calc.type ?? 'real', // Default to 'real' for existing calculations without type
       }));
     } catch (error) {
       console.error("Failed to parse SIP calculations from localStorage", error);

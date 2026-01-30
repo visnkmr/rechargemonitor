@@ -39,6 +39,7 @@ import { MutualFundChart } from "@/components/mutual-fund-chart";
 export default function Home() {
   const { recharges, toggleRecharge } = useRecharges();
   const { calculations: sipCalculations, toggleCalculation } = useSIPCalculations();
+  const realSIPCalculations = sipCalculations.filter(calc => calc.type === 'real' || calc.type === undefined);
   const { calculations: fdCalculations } = useFDCalculations();
   const { calculations: loanCalculations } = useLoanCalculations();
   const { calculations: xirrCalculations } = useXIRRCalculations();
@@ -60,13 +61,13 @@ export default function Home() {
       daysExpired: differenceInDays(new Date(), r.rechargeDate) - r.planDays
     }));
   const totalRechargeValue = recharges.reduce((sum, r) => sum + r.lastRechargeAmount, 0);
-  const totalSIPInvested = sipCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
+  const totalSIPInvested = realSIPCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
   const totalFDInvested = fdCalculations.reduce((sum, calc) => sum + calc.principal, 0);
 
   // Calculate monthly spend
   const monthlyRechargeSpend = activeRecharges.filter(r => r.enabled).reduce((sum, r) => sum + (r.perDayCost * 30), 0);
 
-  const monthlySIPSpend = sipCalculations
+  const monthlySIPSpend = realSIPCalculations
     .filter(calc => calc.enabled) // Only include enabled SIPs
     .reduce((sum, calc) => {
       // Normalize different frequencies to monthly
@@ -169,14 +170,14 @@ export default function Home() {
       bgColor: "bg-emerald-50",
     },
      {
-      title: "SIP Calculator",
-      description: "Calculate Systematic Investment Plan returns",
-      href: "/sip",
-      icon: Calculator,
-      stats: `${sipCalculations.length} saved`,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-    },
+       title: "SIP Calculator",
+       description: "Calculate Systematic Investment Plan returns",
+       href: "/sip",
+       icon: Calculator,
+       stats: `${realSIPCalculations.length} saved`,
+       color: "text-purple-600",
+       bgColor: "bg-purple-50",
+     },
     {
       title: "FD Calculator",
       description: "Calculate Fixed Deposit maturity amounts",
@@ -311,7 +312,7 @@ export default function Home() {
             </div>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
               <Activity className="h-4 w-4 mr-1" />
-              {activeRecharges.length + sipCalculations.length + fdCalculations.length + loanCalculations.length + xirrCalculations.length + bills.length + expenses.length} Active Items
+              {activeRecharges.length + realSIPCalculations.length + fdCalculations.length + loanCalculations.length + xirrCalculations.length + bills.length + expenses.length} Active Items
             </span>
           </div>
         </header>
@@ -415,7 +416,7 @@ export default function Home() {
         )}
 
         {/* Recent Activity */}
-        {(recharges.length > 0 || sipCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0 || expenses.length > 0) && (
+        {(recharges.length > 0 || realSIPCalculations.length > 0 || fdCalculations.length > 0 || loanCalculations.length > 0 || bills.length > 0 || expenses.length > 0) && (
           <Card className="mb-8">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -482,7 +483,7 @@ export default function Home() {
                   </div>
                 ))}
 
-                {sipCalculations.map((calc) => (
+                {realSIPCalculations.map((calc) => (
                   <div key={calc.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Target className="h-5 w-5 text-purple-600" />
