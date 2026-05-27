@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RechargeForm } from "@/components/recharge-form";
 import { Recharge } from "@/lib/types";
+import { Trash2 } from "lucide-react";
 
 interface ActiveRechargesProps {
   recharges: Recharge[];
   onUpdateRecharge: (id: string, recharge: Recharge) => void;
+  onDeleteRecharge: (id: string) => void;
 }
 
-export function ActiveRecharges({ recharges, onUpdateRecharge }: ActiveRechargesProps) {
+export function ActiveRecharges({ recharges, onUpdateRecharge, onDeleteRecharge }: ActiveRechargesProps) {
   const activeRecharges = recharges.filter((r) => r.remainingDays > 0);
 
   return (
@@ -24,11 +26,21 @@ export function ActiveRecharges({ recharges, onUpdateRecharge }: ActiveRecharges
             <Card key={recharge.id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle>{recharge.nickname}</CardTitle>
-                <RechargeForm
-                  recharge={recharge}
-                  onSubmit={(updatedRecharge) => onUpdateRecharge(recharge.id, updatedRecharge)}
-                  trigger={<Button variant="outline" size="sm">Edit</Button>}
-                />
+                <div className="flex gap-1">
+                  <RechargeForm
+                    recharge={recharge}
+                    onSubmit={(updatedRecharge) => onUpdateRecharge(recharge.id, updatedRecharge)}
+                    trigger={<Button variant="outline" size="sm">Edit</Button>}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDeleteRecharge(recharge.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">

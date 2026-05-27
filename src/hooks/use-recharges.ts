@@ -92,5 +92,9 @@ export function useRecharges() {
     ));
   };
 
-  return { recharges, addRecharge, updateRecharge, toggleRecharge };
+  const deleteRecharge = (id: string) => {
+    setRecharges((current) => current.filter((recharge) => recharge.id !== id));
+  };
+
+  return { recharges, addRecharge, updateRecharge, toggleRecharge, deleteRecharge };
 }

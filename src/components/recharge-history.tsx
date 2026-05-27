@@ -4,14 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RechargeForm } from "@/components/recharge-form";
 import { Recharge } from "@/lib/types";
+import { Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface RechargeHistoryProps {
   recharges: Recharge[];
   onUpdateRecharge: (id: string, recharge: Recharge) => void;
+  onDeleteRecharge: (id: string) => void;
 }
 
-export function RechargeHistory({ recharges, onUpdateRecharge }: RechargeHistoryProps) {
+export function RechargeHistory({ recharges, onUpdateRecharge, onDeleteRecharge }: RechargeHistoryProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Recharge History</h2>
@@ -25,11 +27,21 @@ export function RechargeHistory({ recharges, onUpdateRecharge }: RechargeHistory
                 <CardTitle className="text-lg">
                   {recharge.nickname} - {recharge.phoneNumber}
                 </CardTitle>
-                <RechargeForm
-                  recharge={recharge}
-                  onSubmit={(updatedRecharge) => onUpdateRecharge(recharge.id, updatedRecharge)}
-                  trigger={<Button variant="outline" size="sm">Edit</Button>}
-                />
+                <div className="flex gap-1">
+                  <RechargeForm
+                    recharge={recharge}
+                    onSubmit={(updatedRecharge) => onUpdateRecharge(recharge.id, updatedRecharge)}
+                    trigger={<Button variant="outline" size="sm">Edit</Button>}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDeleteRecharge(recharge.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 text-sm">

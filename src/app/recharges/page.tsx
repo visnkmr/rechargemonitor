@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 export default function RechargesPage() {
-  const { recharges, addRecharge, updateRecharge } = useRecharges();
+  const { recharges, addRecharge, updateRecharge, deleteRecharge } = useRecharges();
   const [showHistory, setShowHistory] = useState(false);
 
   const handleUpdateRecharge = (id: string, updatedRecharge: Recharge) => {
@@ -76,11 +76,11 @@ export default function RechargesPage() {
           </Button>
         </div>
 
-        <ActiveRecharges recharges={recharges} onUpdateRecharge={handleUpdateRecharge} />
+        <ActiveRecharges recharges={recharges} onUpdateRecharge={handleUpdateRecharge} onDeleteRecharge={deleteRecharge} />
 
         {showHistory && (
           <div className="mt-8">
-            <RechargeHistory recharges={recharges} onUpdateRecharge={handleUpdateRecharge} />
+            <RechargeHistory recharges={recharges} onUpdateRecharge={handleUpdateRecharge} onDeleteRecharge={deleteRecharge} />
           </div>
         )}
       </div>

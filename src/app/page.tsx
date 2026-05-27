@@ -22,7 +22,8 @@ import {
   EyeOff,
   AlertTriangle,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Clock
 } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { useRecharges } from "@/hooks/use-recharges";
@@ -35,6 +36,7 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
 import { useMFSIPCalculations } from "@/hooks/use-mf-sip-calculations";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
+import { Recharge } from "@/lib/types";
 
 export default function Home() {
   const { recharges, toggleRecharge } = useRecharges();
@@ -52,20 +54,35 @@ export default function Home() {
   const [showRecentActivity, setShowRecentActivity] = useState(true);
   const [showItools, setShowItools] = useState(false);
 
+  // Deduplicate recharges by nickname — keep the most active (most remaining days) or last recharge
+  const dedupeRecharges = <T extends Recharge>(items: T[]): T[] => {
+    const map = new Map<string, T>();
+    for (const r of items) {
+      const existing = map.get(r.nickname);
+      if (!existing ||
+          r.remainingDays > existing.remainingDays ||
+          (r.remainingDays === existing.remainingDays && r.rechargeDate > existing.rechargeDate)) {
+        map.set(r.nickname, r);
+      }
+    }
+    return Array.from(map.values());
+  };
+
   // Calculate stats
   const activeRecharges = recharges.filter(r => r.remainingDays > 0 && r.enabled);
-  const expiredRecharges = recharges
+  const activeRechargesDeduped = dedupeRecharges(activeRecharges);
+  const expiredRecharges = dedupeRecharges(recharges
     .filter(r => r.remainingDays <= 0)
     .map(r => ({
       ...r,
       daysExpired: differenceInDays(new Date(), r.rechargeDate) - r.planDays
-    }));
+    })));
   const totalRechargeValue = recharges.reduce((sum, r) => sum + r.lastRechargeAmount, 0);
   const totalSIPInvested = realSIPCalculations.reduce((sum, calc) => sum + calc.totalInvested, 0);
   const totalFDInvested = fdCalculations.reduce((sum, calc) => sum + calc.principal, 0);
 
   // Calculate monthly spend
-  const monthlyRechargeSpend = activeRecharges.filter(r => r.enabled).reduce((sum, r) => sum + (r.perDayCost * 30), 0);
+  const monthlyRechargeSpend = activeRechargesDeduped.reduce((sum, r) => sum + (r.perDayCost * 30), 0);
 
   const monthlySIPSpend = realSIPCalculations
     .filter(calc => calc.enabled) // Only include enabled SIPs
@@ -287,15 +304,24 @@ export default function Home() {
       bgColor: "bg-teal-50",
     },
    
-     {
-       title: "Export/Import",
-       description: "Backup and restore your data",
-       href: "/export",
-       icon: FileText,
-       stats: "Tools",
-       color: "text-gray-600",
-       bgColor: "bg-gray-50",
-     },
+    {
+      title: "Duration Converter",
+      description: "Convert between years, months, weeks, days, and minutes",
+      href: "/duration",
+      icon: Clock,
+      stats: "Converter",
+      color: "text-amber-600",
+      bgColor: "bg-amber-50",
+    },
+    {
+      title: "Export/Import",
+      description: "Backup and restore your data",
+      href: "/export",
+      icon: FileText,
+      stats: "Tools",
+      color: "text-gray-600",
+      bgColor: "bg-gray-50",
+    },
   ];
 
   return (
@@ -345,7 +371,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                {activeRecharges.map((recharge) => (
+                {activeRechargesDeduped.map((recharge) => (
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
                     <div className="flex items-center gap-3">
                       <Smartphone className="h-5 w-5 text-green-600" />
@@ -451,7 +477,7 @@ export default function Home() {
             {showRecentActivity && (
               <CardContent>
               <div className="grid md:grid-cols-3 gap-2">
-                {activeRecharges.map((recharge) => (
+                {activeRechargesDeduped.map((recharge) => (
                   <div key={recharge.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Smartphone className="h-5 w-5 text-blue-600" />
