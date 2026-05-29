@@ -23,7 +23,8 @@ import {
   AlertTriangle,
   ChevronUp,
   ChevronDown,
-  Clock
+  Clock,
+  Bell
 } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { useRecharges } from "@/hooks/use-recharges";
@@ -35,6 +36,7 @@ import { useBills } from "@/hooks/use-bills";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useMutualFunds } from "@/hooks/use-mutual-funds";
 import { useMFSIPCalculations } from "@/hooks/use-mf-sip-calculations";
+import { useReminders } from "@/hooks/use-reminders";
 import { MutualFundChart } from "@/components/mutual-fund-chart";
 import { Recharge } from "@/lib/types";
 
@@ -49,10 +51,13 @@ export default function Home() {
   const { expenses, toggleExpense } = useExpenses();
   const { watchlist, watchlistFunds } = useMutualFunds();
   const { calculations: mfSipCalculations, toggleCalculation: toggleMFSIPCalculation } = useMFSIPCalculations();
+  const { reminders: allReminders } = useReminders();
+  const [showRechargeReminders, setShowRechargeReminders] = useState(true);
   const [showWatchlistCharts, setShowWatchlistCharts] = useState(false);
   const [showQuickStats, setShowQuickStats] = useState(true);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
   const [showItools, setShowItools] = useState(false);
+  const homeReminders = allReminders.filter(r => r.showOnHome);
 
   // Deduplicate recharges by nickname — keep the most active (most remaining days) or last recharge
   const dedupeRecharges = <T extends Recharge>(items: T[]): T[] => {
@@ -305,6 +310,15 @@ export default function Home() {
     },
    
     {
+      title: "Reminders",
+      description: "Set countdown reminders for important dates",
+      href: "/reminders",
+      icon: Bell,
+      stats: `${allReminders.length} reminders`,
+      color: "text-pink-600",
+      bgColor: "bg-pink-50",
+    },
+    {
       title: "Duration Converter",
       description: "Convert between years, months, weeks, days, and minutes",
       href: "/duration",
@@ -343,51 +357,100 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Expired Recharges Alert */}
-        {expiredRecharges.length > 0 && (
-          <Alert className="mb-8 border-red-200 bg-red-50">
-            <div className="flex flex-row gap-2 items-center pb-3">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-
-            <AlertTitle className="text-red-800">Recharges Info</AlertTitle>
-            <Link href="/recharges">
-                      <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-50">
-                        Recharge
-                      </Button>
-                    </Link>
-            </div>
-            <AlertDescription className="text-red-700">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {expiredRecharges.map((recharge) => (
-                  <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
-                    <div className="flex items-center gap-3">
-                      <Smartphone className="h-5 w-5 text-red-600" />
-                      <div>
-                        <p className="font-medium text-red-800">{recharge.nickname}</p>
-                        <p className="text-sm text-red-600">
-                          Expired {recharge.daysExpired} day{recharge.daysExpired !== 1 ? 's' : ''} ago
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {activeRechargesDeduped.map((recharge) => (
-                  <div key={recharge.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
-                    <div className="flex items-center gap-3">
-                      <Smartphone className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-green-800">{recharge.nickname}</p>
-                        <p className="text-sm text-green-600">
-                          {recharge.remainingDays} day{recharge.remainingDays !== 1 ? 's' : ''} remaining
-                        </p>
-                      </div>
-                    </div>
-                    
-                  </div>
-                ))}
+        {/* Recharge Reminders - Collapsible */}
+        {(expiredRecharges.length > 0 || activeRechargesDeduped.length > 0 || homeReminders.length > 0) && (
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  <CardTitle>Reminders & Recharges</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRechargeReminders(!showRechargeReminders)}
+                >
+                  {showRechargeReminders ? (
+                    <><ChevronUp className="h-4 w-4 mr-2" /> Hide</>
+                  ) : (
+                    <><ChevronDown className="h-4 w-4 mr-2" /> Show</>
+                  )}
+                </Button>
               </div>
-            </AlertDescription>
-          </Alert>
+            </CardHeader>
+            {showRechargeReminders && (
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {/* Home Reminders */}
+                  {homeReminders.map((reminder) => {
+                    const remaining = (() => {
+                      if (reminder.type === 'date' && reminder.date) {
+                        return differenceInDays(reminder.date, new Date());
+                      }
+                      if (reminder.type === 'days' && reminder.days) {
+                        const elapsed = differenceInDays(new Date(), reminder.createdAt);
+                        return Math.max(0, reminder.days - elapsed);
+                      }
+                      return 0;
+                    })();
+                    const isDue = remaining <= 0;
+                    return (
+                      <div key={reminder.id} className={`flex items-center justify-between p-3 rounded-lg border ${isDue ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
+                        <div className="flex items-center gap-3">
+                          <Bell className={`h-5 w-5 ${isDue ? "text-red-600" : "text-blue-600"}`} />
+                          <div>
+                            <p className={`font-medium ${isDue ? "text-red-800" : ""}`}>{reminder.text}</p>
+                            <p className={`text-sm ${isDue ? "text-red-600" : "text-blue-600"}`}>
+                              {isDue ? "Due now!" : `${remaining} day${remaining !== 1 ? 's' : ''} left`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Expired Recharges */}
+                  {expiredRecharges.map((recharge) => (
+                    <div key={recharge.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="h-5 w-5 text-red-600" />
+                        <div>
+                          <p className="font-medium text-red-800">{recharge.nickname}</p>
+                          <p className="text-sm text-red-600">
+                            Expired {recharge.daysExpired} day{recharge.daysExpired !== 1 ? 's' : ''} ago
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Active Recharges */}
+                  {activeRechargesDeduped.map((recharge) => (
+                    <div key={recharge.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="font-medium text-green-800">{recharge.nickname}</p>
+                          <p className="text-sm text-green-600">
+                            {recharge.remainingDays} day{recharge.remainingDays !== 1 ? 's' : ''} remaining
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Link href="/recharges">
+                    <Button variant="outline" size="sm">Manage Recharges</Button>
+                  </Link>
+                  <Link href="/reminders">
+                    <Button variant="outline" size="sm">Manage Reminders</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            )}
+          </Card>
         )}
 
         

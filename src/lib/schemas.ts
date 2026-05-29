@@ -86,3 +86,20 @@ export const xirrSchema = z.object({
 });
 
 export type XIRRFormValues = z.infer<typeof xirrSchema>;
+
+export const reminderSchema = z.object({
+  text: z.string().min(1, "Reminder text is required"),
+  type: z.enum(['date', 'days']),
+  date: z.date().optional(),
+  days: z.number().min(1, "Days must be at least 1").optional(),
+  showOnHome: z.boolean(),
+}).refine((data) => {
+  if (data.type === 'date') return data.date !== undefined;
+  if (data.type === 'days') return data.days !== undefined && data.days > 0;
+  return true;
+}, {
+  message: "Please provide either a date or number of days",
+  path: ["type"],
+});
+
+export type ReminderFormValues = z.infer<typeof reminderSchema>;

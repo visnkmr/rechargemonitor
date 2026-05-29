@@ -192,3 +192,13 @@ export interface MFSIPFormData {
   xirr?: number;
   enabled?: boolean;
 }
+
+export interface Reminder {
+  id: string;
+  text: string;
+  type: 'date' | 'days';
+  date?: Date;
+  days?: number;
+  showOnHome: boolean;
+  createdAt: Date;
+}
