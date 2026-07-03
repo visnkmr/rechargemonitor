@@ -75,6 +75,129 @@ export function calculateFDInterest(principal: number, maturityAmount: number): 
 
 import { MutualFundWithHistory, MFAPIResponse, MFAPIDataPoint } from "./types";
 
+export interface MTFOrderInput {
+  id: string;
+  date: Date;
+  quantity: number;
+  price: number;
+  interestRate: number;
+}
+
+export interface MTFOrderResult {
+  id: string;
+  date: Date;
+  quantity: number;
+  price: number;
+  interestRate: number;
+  totalValue: number;
+  yourContribution: number;
+  brokerContribution: number;
+  interestPaid: number;
+  daysHeld: number;
+}
+
+export interface MTFCalculationResult {
+  orders: MTFOrderResult[];
+  totalQuantity: number;
+  totalInvestment: number;
+  totalYourContribution: number;
+  totalBrokerContribution: number;
+  totalInterestPaid: number;
+  dailyInterest: number;
+  averagePrice: number;
+  currentPrice: number;
+  currentValue: number;
+  marginPercent: number;
+  profitLoss: number;
+  profitLossPercent: number;
+  requiredMarginAtCurrentValue: number;
+  additionalMarginNeeded: number;
+  currentEquity: number;
+}
+
+export function calculateMTFOrderInterest(
+  totalPurchaseValue: number,
+  marginPercent: number,
+  annualInterestRate: number,
+  purchaseDate: Date,
+  currentDate: Date = new Date()
+): number {
+  if (totalPurchaseValue <= 0 || annualInterestRate <= 0) return 0;
+  if (marginPercent >= 100) return 0;
+  const borrowedAmount = totalPurchaseValue * (1 - marginPercent / 100);
+  if (borrowedAmount <= 0) return 0;
+  const days = Math.max(0, (currentDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+  const years = days / 365;
+  return borrowedAmount * (annualInterestRate / 100) * years;
+}
+
+export function calculateMTFOrders(
+  orders: MTFOrderInput[],
+  currentPrice: number,
+  marginPercent: number
+): MTFCalculationResult | null {
+  if (orders.length === 0 || currentPrice <= 0) return null;
+
+  const clampedMargin = Math.max(0, Math.min(100, marginPercent));
+  const now = new Date();
+  const orderResults: MTFOrderResult[] = orders.map((order) => {
+    const totalValue = order.quantity * order.price;
+    const yourContribution = totalValue * (clampedMargin / 100);
+    const brokerContribution = totalValue - yourContribution;
+    const daysHeld = Math.max(0, Math.round((now.getTime() - order.date.getTime()) / (1000 * 60 * 60 * 24)));
+    const interestPaid = calculateMTFOrderInterest(totalValue, clampedMargin, order.interestRate, order.date, now);
+
+    return {
+      id: order.id,
+      date: order.date,
+      quantity: order.quantity,
+      price: order.price,
+      interestRate: order.interestRate,
+      totalValue,
+      yourContribution,
+      brokerContribution,
+      interestPaid,
+      daysHeld,
+    };
+  });
+
+  const totalQuantity = orderResults.reduce((sum, o) => sum + o.quantity, 0);
+  const totalInvestment = orderResults.reduce((sum, o) => sum + o.totalValue, 0);
+  const totalYourContribution = orderResults.reduce((sum, o) => sum + o.yourContribution, 0);
+  const totalBrokerContribution = orderResults.reduce((sum, o) => sum + o.brokerContribution, 0);
+  const totalInterestPaid = orderResults.reduce((sum, o) => sum + o.interestPaid, 0);
+  const dailyInterest = orderResults.reduce((sum, o) => {
+    const borrowed = o.totalValue * (1 - clampedMargin / 100);
+    return sum + borrowed * (o.interestRate / 100) / 365;
+  }, 0);
+  const averagePrice = totalQuantity > 0 ? totalInvestment / totalQuantity : 0;
+  const currentValue = totalQuantity * currentPrice;
+  const profitLoss = currentValue - totalInvestment;
+  const profitLossPercent = totalInvestment > 0 ? (profitLoss / totalInvestment) * 100 : 0;
+  const requiredMarginAtCurrentValue = currentValue * (clampedMargin / 100);
+  const currentEquity = currentValue - totalBrokerContribution;
+  const additionalMarginNeeded = Math.max(0, requiredMarginAtCurrentValue - currentEquity);
+
+  return {
+    orders: orderResults,
+    totalQuantity,
+    totalInvestment,
+    totalYourContribution,
+    totalBrokerContribution,
+    totalInterestPaid,
+    dailyInterest,
+    averagePrice,
+    currentPrice,
+    currentValue,
+    marginPercent: clampedMargin,
+    profitLoss,
+    profitLossPercent,
+    requiredMarginAtCurrentValue,
+    additionalMarginNeeded,
+    currentEquity,
+  };
+}
+
 /**
  * Calculate XIRR using Newton-Raphson method for irregular cash flows
  * This is an approximation for irregular cash flows

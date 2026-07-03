@@ -25,6 +25,7 @@ interface ExportData {
   mfWatchlist?: WatchlistItem[];
   mfPurchases?: MFPurchase[];
   mfSipCalculations?: MFSIPCalculation[];
+  stockMarginPortfolio?: unknown[];
   exportDate: string;
   version: string;
 }
@@ -40,6 +41,7 @@ interface ExportSelections {
   mfWatchlist: boolean;
   mfPurchases: boolean;
   mfSipCalculations: boolean;
+  stockMarginPortfolio: boolean;
 }
 
 export default function ExportPage() {
@@ -60,6 +62,7 @@ export default function ExportPage() {
     mfWatchlist: true,
     mfPurchases: true,
     mfSipCalculations: true,
+    stockMarginPortfolio: true,
   });
   const [showExportText, setShowExportText] = useState(false);
   const [exportJsonText, setExportJsonText] = useState('');
@@ -139,6 +142,7 @@ export default function ExportPage() {
           ...calc,
           enabled: calc.enabled ?? true
         })),
+        stockMarginPortfolio: backupData.stockMarginPortfolio || [],
       };
 
       // Apply to localStorage
@@ -165,7 +169,7 @@ export default function ExportPage() {
   const generateExportData = useCallback((): ExportData => {
     const exportData: ExportData = {
       exportDate: new Date().toISOString(),
-      version: '3.0'
+      version: '3.1'
     };
 
     // Get selected data from localStorage
@@ -198,6 +202,9 @@ export default function ExportPage() {
     }
     if (exportSelections.mfSipCalculations) {
       exportData.mfSipCalculations = JSON.parse(localStorage.getItem('mf-sip-calculations') || '[]');
+    }
+    if (exportSelections.stockMarginPortfolio) {
+      exportData.stockMarginPortfolio = JSON.parse(localStorage.getItem('stock-margin-portfolio') || '[]');
     }
 
     return exportData;
@@ -280,6 +287,7 @@ export default function ExportPage() {
             ...calc,
             enabled: calc.enabled ?? true // Add enabled field for backward compatibility
           })),
+          stockMarginPortfolio: importData.stockMarginPortfolio || [],
           exportDate: importData.exportDate,
           version: importData.version || '1.0'
         };
@@ -297,70 +305,31 @@ export default function ExportPage() {
             mfWatchlist: safeImportData.mfWatchlist.length,
             mfPurchases: safeImportData.mfPurchases.length,
             mfSipCalculations: safeImportData.mfSipCalculations.length,
+            stockMarginPortfolio: safeImportData.stockMarginPortfolio.length,
           };
 
-          if (counts.recharges > 0) {
-            localStorage.setItem('recharges', JSON.stringify(safeImportData.recharges));
-          } else {
-            localStorage.removeItem('recharges');
-          }
+          const setOrRemove = (key: string, data: unknown[]) => {
+            if (data.length > 0) {
+              localStorage.setItem(key, JSON.stringify(data));
+            } else {
+              localStorage.removeItem(key);
+            }
+          };
 
-          if (counts.sipCalculations > 0) {
-            localStorage.setItem('sip-calculations', JSON.stringify(safeImportData.sipCalculations));
-          } else {
-            localStorage.removeItem('sip-calculations');
-          }
-
-          if (counts.fdCalculations > 0) {
-            localStorage.setItem('fd-calculations', JSON.stringify(safeImportData.fdCalculations));
-          } else {
-            localStorage.removeItem('fd-calculations');
-          }
-
-          if (counts.loanCalculations > 0) {
-            localStorage.setItem('loan-calculations', JSON.stringify(safeImportData.loanCalculations));
-          } else {
-            localStorage.removeItem('loan-calculations');
-          }
-
-          if (counts.bills > 0) {
-            localStorage.setItem('bills', JSON.stringify(safeImportData.bills));
-          } else {
-            localStorage.removeItem('bills');
-          }
-
-          if (counts.expenses > 0) {
-            localStorage.setItem('expenses', JSON.stringify(safeImportData.expenses));
-          } else {
-            localStorage.removeItem('expenses');
-          }
-
-          if (counts.xirrCalculations > 0) {
-            localStorage.setItem('xirr-calculations', JSON.stringify(safeImportData.xirrCalculations));
-          } else {
-            localStorage.removeItem('xirr-calculations');
-          }
-
-          if (counts.mfWatchlist > 0) {
-            localStorage.setItem('mf-watchlist', JSON.stringify(safeImportData.mfWatchlist));
-          } else {
-            localStorage.removeItem('mf-watchlist');
-          }
-
-          if (counts.mfPurchases > 0) {
-            localStorage.setItem('mf-purchases', JSON.stringify(safeImportData.mfPurchases));
-          } else {
-            localStorage.removeItem('mf-purchases');
-          }
-
-          if (counts.mfSipCalculations > 0) {
-            localStorage.setItem('mf-sip-calculations', JSON.stringify(safeImportData.mfSipCalculations));
-          } else {
-            localStorage.removeItem('mf-sip-calculations');
-          }
+          setOrRemove('recharges', safeImportData.recharges);
+          setOrRemove('sip-calculations', safeImportData.sipCalculations);
+          setOrRemove('fd-calculations', safeImportData.fdCalculations);
+          setOrRemove('loan-calculations', safeImportData.loanCalculations);
+          setOrRemove('bills', safeImportData.bills);
+          setOrRemove('expenses', safeImportData.expenses);
+          setOrRemove('xirr-calculations', safeImportData.xirrCalculations);
+          setOrRemove('mf-watchlist', safeImportData.mfWatchlist);
+          setOrRemove('mf-purchases', safeImportData.mfPurchases);
+          setOrRemove('mf-sip-calculations', safeImportData.mfSipCalculations);
+          setOrRemove('stock-margin-portfolio', safeImportData.stockMarginPortfolio);
 
           setImportStatus('success');
-          setImportMessage(`Successfully replaced data with ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, ${counts.mfPurchases} MF purchases, and ${counts.mfSipCalculations} MF SIP calculations. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully replaced data with ${counts.recharges} recharges, ${counts.sipCalculations} SIP, ${counts.fdCalculations} FD, ${counts.loanCalculations} loans, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR, ${counts.mfWatchlist} MF watchlist, ${counts.mfPurchases} MF purchases, ${counts.mfSipCalculations} MF SIP, and ${counts.stockMarginPortfolio} stock margin entries. Please refresh the page.`);
         } else {
           // Append mode - merge with existing data
           const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -373,6 +342,7 @@ export default function ExportPage() {
           const existingMFWatchlist = JSON.parse(localStorage.getItem('mf-watchlist') || '[]');
           const existingMFPurchases = JSON.parse(localStorage.getItem('mf-purchases') || '[]');
           const existingMFSIPCalculations = JSON.parse(localStorage.getItem('mf-sip-calculations') || '[]');
+          const existingStockMargin = JSON.parse(localStorage.getItem('stock-margin-portfolio') || '[]');
 
           // Generate new IDs for imported data to avoid conflicts
           const mergedRecharges = [
@@ -455,6 +425,14 @@ export default function ExportPage() {
             }))
           ];
 
+          const mergedStockMargin = [
+            ...existingStockMargin,
+            ...safeImportData.stockMarginPortfolio.map((entry: any) => ({
+              ...entry,
+              id: crypto.randomUUID()
+            }))
+          ];
+
           const counts = {
             recharges: safeImportData.recharges.length,
             sipCalculations: safeImportData.sipCalculations.length,
@@ -466,6 +444,7 @@ export default function ExportPage() {
             mfWatchlist: safeImportData.mfWatchlist.length,
             mfPurchases: safeImportData.mfPurchases.length,
             mfSipCalculations: safeImportData.mfSipCalculations.length,
+            stockMarginPortfolio: safeImportData.stockMarginPortfolio.length,
           };
 
           if (mergedRecharges.length > 0) {
@@ -508,8 +487,12 @@ export default function ExportPage() {
             localStorage.setItem('mf-sip-calculations', JSON.stringify(mergedMFSIPCalculations));
           }
 
+          if (mergedStockMargin.length > 0) {
+            localStorage.setItem('stock-margin-portfolio', JSON.stringify(mergedStockMargin));
+          }
+
           setImportStatus('success');
-          setImportMessage(`Successfully appended ${counts.recharges} recharges, ${counts.sipCalculations} SIP calculations, ${counts.fdCalculations} FD calculations, ${counts.loanCalculations} loan calculations, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR calculations, ${counts.mfWatchlist} MF watchlist items, ${counts.mfPurchases} MF purchases, and ${counts.mfSipCalculations} MF SIP calculations to existing data. Please refresh the page to see the changes.`);
+          setImportMessage(`Successfully appended ${counts.recharges} recharges, ${counts.sipCalculations} SIP, ${counts.fdCalculations} FD, ${counts.loanCalculations} loans, ${counts.bills} bills, ${counts.expenses} expenses, ${counts.xirrCalculations} XIRR, ${counts.mfWatchlist} MF watchlist, ${counts.mfPurchases} MF purchases, ${counts.mfSipCalculations} MF SIP, and ${counts.stockMarginPortfolio} stock margin entries. Please refresh the page.`);
         }
 
         // Clear the file input
@@ -554,78 +537,38 @@ export default function ExportPage() {
         xirrCalculations: importData.xirrCalculations || [],
         mfWatchlist: importData.mfWatchlist || [],
         mfPurchases: importData.mfPurchases || [],
-        mfSipCalculations: (importData.mfSipCalculations || []).map(calc => ({
-          ...calc,
-          enabled: calc.enabled ?? true // Add enabled field for backward compatibility
-        })),
-        exportDate: importData.exportDate,
-        version: importData.version || '1.0'
-      };
+          mfSipCalculations: (importData.mfSipCalculations || []).map(calc => ({
+            ...calc,
+            enabled: calc.enabled ?? true // Add enabled field for backward compatibility
+          })),
+          stockMarginPortfolio: importData.stockMarginPortfolio || [],
+          exportDate: importData.exportDate,
+          version: importData.version || '1.0'
+        };
 
       if (importMode === 'replace') {
-        // Replace mode - completely replace existing data
-        if (safeImportData.recharges.length > 0) {
-          localStorage.setItem('recharges', JSON.stringify(safeImportData.recharges));
-        } else {
-          localStorage.removeItem('recharges');
-        }
+        const setOrRemove = (key: string, data: unknown[]) => {
+          if (data.length > 0) {
+            localStorage.setItem(key, JSON.stringify(data));
+          } else {
+            localStorage.removeItem(key);
+          }
+        };
 
-        if (safeImportData.sipCalculations.length > 0) {
-          localStorage.setItem('sip-calculations', JSON.stringify(safeImportData.sipCalculations));
-        } else {
-          localStorage.removeItem('sip-calculations');
-        }
-
-        if (safeImportData.fdCalculations.length > 0) {
-          localStorage.setItem('fd-calculations', JSON.stringify(safeImportData.fdCalculations));
-        } else {
-          localStorage.removeItem('fd-calculations');
-        }
-
-        if (safeImportData.loanCalculations.length > 0) {
-          localStorage.setItem('loan-calculations', JSON.stringify(safeImportData.loanCalculations));
-        } else {
-          localStorage.removeItem('loan-calculations');
-        }
-
-        if (safeImportData.bills.length > 0) {
-          localStorage.setItem('bills', JSON.stringify(safeImportData.bills));
-        } else {
-          localStorage.removeItem('bills');
-        }
-
-        if (safeImportData.expenses.length > 0) {
-          localStorage.setItem('expenses', JSON.stringify(safeImportData.expenses));
-        } else {
-          localStorage.removeItem('expenses');
-        }
-
-        if (safeImportData.xirrCalculations.length > 0) {
-          localStorage.setItem('xirr-calculations', JSON.stringify(safeImportData.xirrCalculations));
-        } else {
-          localStorage.removeItem('xirr-calculations');
-        }
-
-        if (safeImportData.mfWatchlist.length > 0) {
-          localStorage.setItem('mf-watchlist', JSON.stringify(safeImportData.mfWatchlist));
-        } else {
-          localStorage.removeItem('mf-watchlist');
-        }
-
-        if (safeImportData.mfPurchases.length > 0) {
-          localStorage.setItem('mf-purchases', JSON.stringify(safeImportData.mfPurchases));
-        } else {
-          localStorage.removeItem('mf-purchases');
-        }
-
-        if (safeImportData.mfSipCalculations.length > 0) {
-          localStorage.setItem('mf-sip-calculations', JSON.stringify(safeImportData.mfSipCalculations));
-        } else {
-          localStorage.removeItem('mf-sip-calculations');
-        }
+        setOrRemove('recharges', safeImportData.recharges);
+        setOrRemove('sip-calculations', safeImportData.sipCalculations);
+        setOrRemove('fd-calculations', safeImportData.fdCalculations);
+        setOrRemove('loan-calculations', safeImportData.loanCalculations);
+        setOrRemove('bills', safeImportData.bills);
+        setOrRemove('expenses', safeImportData.expenses);
+        setOrRemove('xirr-calculations', safeImportData.xirrCalculations);
+        setOrRemove('mf-watchlist', safeImportData.mfWatchlist);
+        setOrRemove('mf-purchases', safeImportData.mfPurchases);
+        setOrRemove('mf-sip-calculations', safeImportData.mfSipCalculations);
+        setOrRemove('stock-margin-portfolio', safeImportData.stockMarginPortfolio);
 
         setImportStatus('success');
-        setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, ${safeImportData.bills.length} bills, ${safeImportData.expenses.length} expenses, ${safeImportData.xirrCalculations.length} XIRR calculations, ${safeImportData.mfWatchlist.length} MF watchlist items, ${safeImportData.mfPurchases.length} MF purchases, and ${safeImportData.mfSipCalculations.length} MF SIP calculations. Please refresh the page to see the changes.`);
+        setImportMessage(`Successfully replaced data with ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP, ${safeImportData.fdCalculations.length} FD, ${safeImportData.loanCalculations.length} loans, ${safeImportData.bills.length} bills, ${safeImportData.expenses.length} expenses, ${safeImportData.xirrCalculations.length} XIRR, ${safeImportData.mfWatchlist.length} MF watchlist, ${safeImportData.mfPurchases.length} MF purchases, ${safeImportData.mfSipCalculations.length} MF SIP, and ${safeImportData.stockMarginPortfolio.length} stock margin entries. Please refresh the page.`);
       } else {
         // Append mode - merge with existing data
         const existingRecharges = JSON.parse(localStorage.getItem('recharges') || '[]');
@@ -633,6 +576,7 @@ export default function ExportPage() {
         const existingFDCalculations = JSON.parse(localStorage.getItem('fd-calculations') || '[]');
         const existingLoanCalculations = JSON.parse(localStorage.getItem('loan-calculations') || '[]');
         const existingBills = JSON.parse(localStorage.getItem('bills') || '[]');
+        const existingStockMargin = JSON.parse(localStorage.getItem('stock-margin-portfolio') || '[]');
 
         // Generate new IDs for imported data to avoid conflicts
         const mergedRecharges = [
@@ -675,6 +619,14 @@ export default function ExportPage() {
           }))
         ];
 
+        const mergedStockMargin = [
+          ...existingStockMargin,
+          ...safeImportData.stockMarginPortfolio.map((entry: any) => ({
+            ...entry,
+            id: crypto.randomUUID()
+          }))
+        ];
+
         if (mergedRecharges.length > 0) {
           localStorage.setItem('recharges', JSON.stringify(mergedRecharges));
         }
@@ -695,8 +647,12 @@ export default function ExportPage() {
           localStorage.setItem('bills', JSON.stringify(mergedBills));
         }
 
+        if (mergedStockMargin.length > 0) {
+          localStorage.setItem('stock-margin-portfolio', JSON.stringify(mergedStockMargin));
+        }
+
         setImportStatus('success');
-        setImportMessage(`Successfully appended ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP calculations, ${safeImportData.fdCalculations.length} FD calculations, ${safeImportData.loanCalculations.length} loan calculations, and ${safeImportData.bills.length} bills to existing data. Please refresh the page to see the changes.`);
+        setImportMessage(`Successfully appended ${safeImportData.recharges.length} recharges, ${safeImportData.sipCalculations.length} SIP, ${safeImportData.fdCalculations.length} FD, ${safeImportData.loanCalculations.length} loans, ${safeImportData.bills.length} bills, and ${safeImportData.stockMarginPortfolio.length} stock margin entries. Please refresh the page.`);
       }
 
       // Clear the text area on success
@@ -719,6 +675,7 @@ export default function ExportPage() {
       localStorage.removeItem('xirr-calculations');
       localStorage.removeItem('mf-watchlist');
       localStorage.removeItem('mf-purchases');
+      localStorage.removeItem('stock-margin-portfolio');
       setImportStatus('success');
       setImportMessage('All data cleared successfully. Please refresh the page.');
     }
@@ -843,15 +800,23 @@ export default function ExportPage() {
                         />
                         <Label htmlFor="export-mf-purchases" className="text-sm">MF Purchases</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="export-mf-sip"
-                          checked={exportSelections.mfSipCalculations}
-                          onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfSipCalculations: checked }))}
-                        />
-                        <Label htmlFor="export-mf-sip" className="text-sm">MF SIP Calculations</Label>
-                      </div>
-                    </div>
+                       <div className="flex items-center space-x-2">
+                         <Checkbox
+                           id="export-mf-sip"
+                           checked={exportSelections.mfSipCalculations}
+                           onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, mfSipCalculations: checked }))}
+                         />
+                         <Label htmlFor="export-mf-sip" className="text-sm">MF SIP Calculations</Label>
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <Checkbox
+                           id="export-stock-margin"
+                           checked={exportSelections.stockMarginPortfolio}
+                           onCheckedChange={(checked) => setExportSelections(prev => ({ ...prev, stockMarginPortfolio: checked }))}
+                         />
+                         <Label htmlFor="export-stock-margin" className="text-sm">Stock Margin Portfolio</Label>
+                       </div>
+                     </div>
                  </div>
                  <div className="flex gap-2">
                    <Button onClick={exportData} className="flex-1">
@@ -1023,9 +988,10 @@ export default function ExportPage() {
                           {new Date(backup.timestamp).toLocaleString()}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          Contains: {backup.data.recharges?.length || 0} recharges,
-                          {backup.data.sipCalculations?.length || 0} SIP calcs,
-                          {backup.data.mfSipCalculations?.length || 0} MF SIP calcs
+                           Contains: {backup.data.recharges?.length || 0} recharges,
+                          {backup.data.sipCalculations?.length || 0} SIP,
+                          {backup.data.mfSipCalculations?.length || 0} MF SIP,
+                          {backup.data.stockMarginPortfolio?.length || 0} stock margin
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -1069,7 +1035,7 @@ export default function ExportPage() {
               Clear All Data
             </Button>
               <p className="text-xs text-muted-foreground mt-2">
-                This will permanently delete all recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, and mutual fund data.
+                This will permanently delete all recharges, SIP/FD/loan calculations, bills, expenses, XIRR calculations, mutual fund, and stock margin data.
               </p>
           </CardContent>
         </Card>
