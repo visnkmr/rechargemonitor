@@ -100,11 +100,10 @@ export default function StockMarginPage() {
   const [orders, setOrders] = useState<MTFOrder[]>([emptyOrder()]);
   const [calculated, setCalculated] = useState(false);
 
-  useEffect(() => { setPortfolio(loadPortfolio()); }, []);
-
   useEffect(() => {
-    if (view === 'portfolio') savePortfolio(portfolio);
-  }, [portfolio, view]);
+    const saved = loadPortfolio();
+    setPortfolio(saved);
+  }, []);
 
   const openNew = () => {
     setEditingId(null);
@@ -141,16 +140,21 @@ export default function StockMarginPage() {
       updatedAt: now,
     };
 
+    let updated: SavedMTFEntry[];
     if (editingId) {
-      setPortfolio(prev => prev.map(e => e.id === editingId ? entry : e));
+      updated = portfolio.map(e => e.id === editingId ? entry : e);
     } else {
-      setPortfolio(prev => [...prev, entry]);
+      updated = [...portfolio, entry];
     }
+    setPortfolio(updated);
+    savePortfolio(updated);
     setView('portfolio');
   };
 
   const handleDelete = (id: string) => {
-    setPortfolio(prev => prev.filter(e => e.id !== id));
+    const updated = portfolio.filter(e => e.id !== id);
+    setPortfolio(updated);
+    savePortfolio(updated);
   };
 
   const handleCancel = () => {
