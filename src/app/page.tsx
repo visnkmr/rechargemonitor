@@ -345,6 +345,15 @@ export default function Home() {
       color: "text-gray-600",
       bgColor: "bg-gray-50",
     },
+    {
+      title: "Formula Calculator",
+      description: "Calculate derived fields using copy-paste formulas",
+      href: "/formula-calculator",
+      icon: Calculator,
+      stats: "12 formulas",
+      color: "text-violet-600",
+      bgColor: "bg-violet-50",
+    },
   ];
 
   return (
